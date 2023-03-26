@@ -1,0 +1,6 @@
+uint8 request_code
+builtin_interfaces/Time request_time
+---
+uint8 response_code
+builtin_interfaces/Time request_time
+builtin_interfaces/Time response_time

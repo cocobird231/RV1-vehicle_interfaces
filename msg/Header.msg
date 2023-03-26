@@ -1,0 +1,35 @@
+uint8 PRIORITY_CONTROL = 0
+uint8 PRIORITY_SENSOR = 1
+uint8 PRIORITY_INFO = 2
+
+uint8 DEVTYPE_NONE = 0
+uint8 DEVTYPE_IDTABLE = 1
+uint8 DEVTYPE_JOYSTICK = 2
+uint8 DEVTYPE_STEERINGWHEEL = 3
+uint8 DEVTYPE_MOTOR = 4
+uint8 DEVTYPE_BATTERY = 5
+uint8 DEVTYPE_IMU = 6
+uint8 DEVTYPE_GPS = 7
+uint8 DEVTYPE_ENVIRONMENT = 8
+uint8 DEVTYPE_RF = 9
+uint8 DEVTYPE_ULTRASONIC = 10
+uint8 DEVTYPE_IMAGE = 11
+uint8 DEVTYPE_MOTOR_AXLE = 12
+uint8 DEVTYPE_MOTOR_STEERING = 13
+uint8 DEVTYPE_MOTOR_BRAKING = 14
+
+
+uint8 STAMPTYPE_NO_SYNC = 0
+uint8 STAMPTYPE_NONE_UTC_SYNC = 1
+uint8 STAMPTYPE_UTC_SYNC = 2
+
+float32 VERSION = 1.3
+
+uint8 priority 2
+uint8 device_type 0
+string device_id
+uint64 frame_id 0
+uint8 stamp_type 0
+builtin_interfaces/Time stamp
+
+float32 ref_publish_time_ms

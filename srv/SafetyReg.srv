@@ -1,0 +1,9 @@
+# Passing device_id to safety server is necessary for control server to identify the place where emergency occurred
+string device_id
+
+# emergency_percentage from 0 to 1 represents emergency level from low to high
+float32 emergency_percentage
+
+---
+# response is true if value accepted, otherwise server ignore the request and response false
+bool response
