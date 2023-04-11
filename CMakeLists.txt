@@ -34,6 +34,8 @@ set(msg_files
   "msg/MotorAxle.msg"
   "msg/MotorSteering.msg"
   "msg/UPS.msg"
+  "msg/MillitBrakeMotor.msg"
+  "msg/MillitPowerMotor.msg"
 )
 
 set(srv_files
