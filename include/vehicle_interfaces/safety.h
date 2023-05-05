@@ -97,9 +97,9 @@ public:
         request->device_id = devID;
         auto result = this->reqClient_->async_send_request(request);
 #if ROS_DISTRO == 0
-        if (rclcpp::spin_until_future_complete(this->regClientNode_, result, 10ms) == rclcpp::executor::FutureReturnCode::SUCCESS)
+        if (rclcpp::spin_until_future_complete(this->reqClientNode_, result, 10ms) == rclcpp::executor::FutureReturnCode::SUCCESS)
 #else
-        if (rclcpp::spin_until_future_complete(this->regClientNode_, result, 10ms) == rclcpp::FutureReturnCode::SUCCESS)
+        if (rclcpp::spin_until_future_complete(this->reqClientNode_, result, 10ms) == rclcpp::FutureReturnCode::SUCCESS)
 #endif
         {
             auto response = result.get();
@@ -118,9 +118,9 @@ public:
         request->device_id = "all";
         auto result = this->reqClient_->async_send_request(request);
 #if ROS_DISTRO == 0
-        if (rclcpp::spin_until_future_complete(this->regClientNode_, result, 10ms) == rclcpp::executor::FutureReturnCode::SUCCESS)
+        if (rclcpp::spin_until_future_complete(this->reqClientNode_, result, 10ms) == rclcpp::executor::FutureReturnCode::SUCCESS)
 #else
-        if (rclcpp::spin_until_future_complete(this->regClientNode_, result, 10ms) == rclcpp::FutureReturnCode::SUCCESS)
+        if (rclcpp::spin_until_future_complete(this->reqClientNode_, result, 10ms) == rclcpp::FutureReturnCode::SUCCESS)
 #endif
         {
             auto response = result.get();
