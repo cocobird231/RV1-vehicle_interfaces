@@ -57,7 +57,7 @@ private:
     }
 
 public:
-    SafetyNode(std::string nodeName, std::string safetyServiceName) : Node(nodeName)
+    SafetyNode(std::string nodeName, std::string safetyServiceName) : rclcpp::Node(nodeName)
     {
         this->regClientNode_ = rclcpp::Node::make_shared(nodeName + "_safetyreg_client");
         this->regClient_ = this->regClientNode_->create_client<vehicle_interfaces::srv::SafetyReg>(safetyServiceName + "_Reg");
@@ -217,7 +217,7 @@ private:
     }
 
 public:
-    SafetyServer(std::string nodeName, std::string serviceName) : Node(nodeName)
+    SafetyServer(std::string nodeName, std::string serviceName) : rclcpp::Node(nodeName)
     {
         this->regServer_ = this->create_service<vehicle_interfaces::srv::SafetyReg>(serviceName + "_Reg", 
             std::bind(&SafetyServer::_regServerCallback, this, std::placeholders::_1, std::placeholders::_2));

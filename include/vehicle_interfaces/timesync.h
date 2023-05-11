@@ -184,7 +184,7 @@ private:
     }
 
 public:
-    TimeSyncNode(std::string nodeName, std::string timeServiceName, int syncInterval_ms = 10000) : Node(nodeName)
+    TimeSyncNode(std::string nodeName, std::string timeServiceName, int syncInterval_ms = 10000) : rclcpp::Node(nodeName)
     {
         this->clientNode_ = rclcpp::Node::make_shared(nodeName + "_timesync_client");
         this->client_ = this->clientNode_->create_client<vehicle_interfaces::srv::TimeSync>(timeServiceName);
@@ -298,7 +298,7 @@ private:
     }
 
 public:
-    TimeSyncServer(std::string nodeName, std::string timeServiceName) : Node(nodeName)
+    TimeSyncServer(std::string nodeName, std::string timeServiceName) : rclcpp::Node(nodeName)
     {
         this->server_ = this->create_service<vehicle_interfaces::srv::TimeSync>(timeServiceName, 
             std::bind(&TimeSyncServer::_serviceCallback, this, std::placeholders::_1, std::placeholders::_2));
