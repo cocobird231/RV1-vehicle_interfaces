@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <atomic>
 #include <mutex>
 
 #include "rclcpp/rclcpp.hpp"
@@ -19,7 +20,9 @@ using namespace std::chrono_literals;
 class Timer
 {
 private:
-    std::chrono::duration<float, std::milli> interval_;
+    std::chrono::duration<double, std::milli> interval_;
+    std::mutex intervalLock_;
+
     std::atomic<bool> activateF_;
     std::atomic<bool> exitF_;
     std::atomic<bool> funcCallableF_;
@@ -29,14 +32,28 @@ private:
     std::thread callbackTH_;
 
 private:
+	template <typename T>
+	void _safeSave(T* ptr, const T value, std::mutex& lock)
+	{
+		std::lock_guard<std::mutex> _lock(lock);
+		*ptr = value;
+	}
+
+	template <typename T>
+	T _safeCall(const T* ptr, std::mutex& lock)
+	{
+		std::lock_guard<std::mutex> _lock(lock);
+		return *ptr;
+	}
+
     void _timer()
     {
         while (!this->exitF_)
         {
             try
             {
-                auto st = std::chrono::steady_clock::now();
-                while (!this->exitF_ && this->activateF_ && (std::chrono::steady_clock::now() - st < this->interval_))
+                auto st = std::chrono::high_resolution_clock::now();
+                while (!this->exitF_ && this->activateF_ && (std::chrono::high_resolution_clock::now() - st < this->interval_))
                     std::this_thread::yield();
                 if (!this->exitF_ && this->activateF_ && this->funcCallableF_)
                 {
@@ -55,15 +72,15 @@ private:
             this->callbackTH_.join();
     }
 
-    void _timer_fixedRate()// Unfinished
+    void _timer_fixedRate()// Experimental
     {
-        auto st = std::chrono::steady_clock::now();
-        int intervalMultiples = 1;
+        auto st = std::chrono::high_resolution_clock::now();
+        uint64_t intervalMultiples = 1;
         while (!this->exitF_)
         {
             try
             {
-                while (!this->exitF_ && this->activateF_ && (std::chrono::steady_clock::now() - st < this->interval_ * intervalMultiples))
+                while (!this->exitF_ && this->activateF_ && (std::chrono::high_resolution_clock::now() - st < this->_safeCall(&this->interval_, this->intervalLock_) * intervalMultiples))
                     std::this_thread::yield();
                 intervalMultiples++;
                 if (!this->exitF_ && this->activateF_ && this->funcCallableF_)
@@ -73,6 +90,11 @@ private:
                     this->callbackTH_ = std::thread(&Timer::_tick, this);
                 }
                 std::this_thread::yield();
+                if (intervalMultiples > 100000)
+                {
+                    intervalMultiples = 1;
+                    st = std::chrono::high_resolution_clock::now();
+                }
             }
             catch (const std::exception& e)
             {
@@ -91,9 +113,9 @@ private:
     }
 
 public:
-    Timer(int interval_ms, const std::function<void()>& callback) : activateF_(false), exitF_(false), funcCallableF_(true)
+    Timer(double interval_ms, const std::function<void()>& callback) : activateF_(false), exitF_(false), funcCallableF_(true)
     {
-        this->interval_ = std::chrono::milliseconds(interval_ms);
+        this->interval_ = std::chrono::duration<double, std::milli>(interval_ms);
         this->func_ = callback;
         this->timerTH_ = std::thread(&Timer::_timer, this);
     }
@@ -106,6 +128,11 @@ public:
     void start() { this->activateF_ = true; }
 
     void stop() { this->activateF_ = false; }
+
+    void setInterval(double interval_ms)// Experimental
+    {
+        this->_safeSave(&this->interval_, std::chrono::duration<double, std::milli>(interval_ms), this->intervalLock_);
+    }
 
     void destroy()
     {
@@ -130,9 +157,10 @@ private:
     rclcpp::Client<vehicle_interfaces::srv::TimeSync>::SharedPtr client_;
 
     Timer* timeSyncTimer_;
-    std::chrono::duration<float, std::milli> timeSyncTimerInterval_;
+    std::chrono::duration<double, std::milli> timeSyncTimerInterval_;
+    std::chrono::duration<double, std::nano> timeSyncAccuracy_;
 
-    bool isSyncF_;
+    std::atomic<bool> isSyncF_;
     std::mutex correctDurationLock_;
 
 private:
@@ -166,25 +194,28 @@ private:
     void timeSyncTimer_callback_()
     {
         std::cout << "timeSyncTimer_callback_" << std::endl;
-        auto st = std::chrono::steady_clock::now();
+        auto st = std::chrono::high_resolution_clock::now();
         try
         {
-            while (!this->syncTime() && (std::chrono::steady_clock::now() - st < this->timeSyncTimerInterval_))
+            while (!this->syncTime() && (std::chrono::high_resolution_clock::now() - st < this->timeSyncTimerInterval_))
                 std::this_thread::sleep_for(500ms);
             if (!this->isSyncF_)
-                printf("[TimeSyncNode::timer_callback] Time sync failed.\n");
+                printf("[TimeSyncNode::timeSyncTimer_callback_] Time sync failed.\n");
             else
-                printf("[TimeSyncNode::timer_callback] Time synced.\n");
-            printf("[TimeSyncNode::timer_callback] Correct duration: %f us\n", this->_safeCall(this->correctDuration_, this->correctDurationLock_).nanoseconds() / 1000.0);
+                printf("[TimeSyncNode::timeSyncTimer_callback_] Time synced.\n");
+            printf("[TimeSyncNode::timeSyncTimer_callback_] Correct duration: %f us\n", this->_safeCall(this->correctDuration_, this->correctDurationLock_).nanoseconds() / 1000.0);
         }
         catch (const std::exception& e)
         {
-            std::cerr << "[TimeSyncNode::timer_callback] Unexpected Error" << e.what() << std::endl;
+            std::cerr << "[TimeSyncNode::timeSyncTimer_callback_] Unexpected Error" << e.what() << std::endl;
         }
     }
 
 public:
-    TimeSyncNode(std::string nodeName, std::string timeServiceName, int syncInterval_ms = 10000) : rclcpp::Node(nodeName)
+    TimeSyncNode(const std::string& nodeName, 
+                    const std::string& timeServiceName, 
+                    double syncInterval_ms, 
+                    double syncAccuracy_ms) : rclcpp::Node(nodeName)
     {
         this->clientNode_ = rclcpp::Node::make_shared(nodeName + "_timesync_client");
         this->client_ = this->clientNode_->create_client<vehicle_interfaces::srv::TimeSync>(timeServiceName);
@@ -193,6 +224,7 @@ public:
         this->refTime_ = rclcpp::Time();
         this->correctDuration_ = new rclcpp::Duration(0, 0);
         this->timeStampType_ = vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
+        this->timeSyncAccuracy_ = std::chrono::duration<double, std::nano>(syncAccuracy_ms * 1000000.0);
         
         printf("[TimeSyncNode] Sync time from %s...\n", timeServiceName.c_str());
         this->connToService();
@@ -206,11 +238,11 @@ public:
         {
             std::cerr << "[TimeSyncNode] Unexpected Error" << e.what() << std::endl;
         }
-        printf("[TimeSyncNode] Time synced: %d\n", this->isSyncF_);
+        printf("[TimeSyncNode] Time synced: %d\n", this->isSyncF_.load());
 
         if (syncInterval_ms > 0)
         {
-            this->timeSyncTimerInterval_ = std::chrono::milliseconds(syncInterval_ms);
+            this->timeSyncTimerInterval_ = std::chrono::duration<double, std::milli>(syncInterval_ms);
             this->timeSyncTimer_ = new Timer(syncInterval_ms, std::bind(&TimeSyncNode::timeSyncTimer_callback_, this));
             this->timeSyncTimer_->start();
         }
@@ -236,7 +268,7 @@ public:
                 rclcpp::Time nowTime = this->get_clock()->now();
                 auto response = result.get();
                 this->initTime_ = response->request_time;
-                if ((nowTime - this->initTime_).nanoseconds() > 10000000.0)// If request and response time > 10ms, re-sync
+                if ((nowTime - this->initTime_).nanoseconds() >  this->timeSyncAccuracy_.count())// If travel time > accuracy, re-sync
                     return false;
                 
                 this->refTime_ = (rclcpp::Time)response->response_time - (nowTime - this->initTime_) * 0.5;
