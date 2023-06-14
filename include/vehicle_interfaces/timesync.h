@@ -20,8 +20,8 @@ using namespace std::chrono_literals;
 class Timer
 {
 private:
-    std::chrono::duration<double, std::milli> interval_;
-    std::mutex intervalLock_;
+    std::chrono::high_resolution_clock::duration interval_;
+    std::chrono::high_resolution_clock::time_point st_;
 
     std::atomic<bool> activateF_;
     std::atomic<bool> exitF_;
@@ -46,7 +46,7 @@ private:
 		return *ptr;
 	}
 
-    void _timer()
+    void _timer()// Deprecated
     {
         while (!this->exitF_)
         {
@@ -72,29 +72,27 @@ private:
             this->callbackTH_.join();
     }
 
-    void _timer_fixedRate()// Experimental
+    void _timer_fixedRate()
     {
-        auto st = std::chrono::high_resolution_clock::now();
-        uint64_t intervalMultiples = 1;
         while (!this->exitF_)
         {
             try
             {
-                while (!this->exitF_ && this->activateF_ && (std::chrono::high_resolution_clock::now() - st < this->_safeCall(&this->interval_, this->intervalLock_) * intervalMultiples))
-                    std::this_thread::yield();
-                intervalMultiples++;
-                if (!this->exitF_ && this->activateF_ && this->funcCallableF_)
+                if (!this->exitF_ && this->activateF_)
                 {
-                    if (this->callbackTH_.joinable())
-                        this->callbackTH_.join();
-                    this->callbackTH_ = std::thread(&Timer::_tick, this);
+                    auto tickTimePoint = this->st_ + this->interval_;
+                    this->st_ = tickTimePoint;
+
+                    while (!this->exitF_ && this->activateF_ && (std::chrono::high_resolution_clock::now() < tickTimePoint))
+                        std::this_thread::yield();
+                    if (!this->exitF_ && this->activateF_ && this->funcCallableF_)
+                    {
+                        if (this->callbackTH_.joinable())
+                            this->callbackTH_.join();
+                        this->callbackTH_ = std::thread(&Timer::_tick, this);
+                    }
                 }
                 std::this_thread::yield();
-                if (intervalMultiples > 100000)
-                {
-                    intervalMultiples = 1;
-                    st = std::chrono::high_resolution_clock::now();
-                }
             }
             catch (const std::exception& e)
             {
@@ -115,9 +113,10 @@ private:
 public:
     Timer(double interval_ms, const std::function<void()>& callback) : activateF_(false), exitF_(false), funcCallableF_(true)
     {
-        this->interval_ = std::chrono::duration<double, std::milli>(interval_ms);
+        this->interval_ = std::chrono::high_resolution_clock::duration(std::chrono::nanoseconds(static_cast<uint64_t>(interval_ms * 1000000)));
         this->func_ = callback;
-        this->timerTH_ = std::thread(&Timer::_timer, this);
+        this->st_ = std::chrono::high_resolution_clock::now();
+        this->timerTH_ = std::thread(&Timer::_timer_fixedRate, this);
     }
 
     ~Timer()
@@ -125,13 +124,19 @@ public:
         this->destroy();
     }
 
-    void start() { this->activateF_ = true; }
+    void start()
+    {
+        this->st_ = std::chrono::high_resolution_clock::now();
+        this->activateF_ = true;
+    }
 
     void stop() { this->activateF_ = false; }
 
     void setInterval(double interval_ms)// Experimental
     {
-        this->_safeSave(&this->interval_, std::chrono::duration<double, std::milli>(interval_ms), this->intervalLock_);
+        this->stop();
+        this->interval_ = std::chrono::high_resolution_clock::duration(std::chrono::nanoseconds(static_cast<uint64_t>(interval_ms * 1000000)));
+        this->start();
     }
 
     void destroy()
