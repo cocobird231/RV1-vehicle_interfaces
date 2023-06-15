@@ -132,11 +132,13 @@ public:
 
     void stop() { this->activateF_ = false; }
 
-    void setInterval(double interval_ms)// Experimental
+    void setInterval(double interval_ms)
     {
+        bool preState = this->activateF_;
         this->stop();
         this->interval_ = std::chrono::high_resolution_clock::duration(std::chrono::nanoseconds(static_cast<uint64_t>(interval_ms * 1000000)));
-        this->start();
+        if (preState)
+            this->start();
     }
 
     void destroy()
