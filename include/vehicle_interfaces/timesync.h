@@ -285,7 +285,7 @@ public:
                 
                 this->_safeSave(this->correctDuration_, this->refTime_ - this->initTime_, this->correctDurationLock_);
                 
-                RCLCPP_INFO(this->clientNode_->get_logger(), "Response: %d", this->timeStampType_);
+                RCLCPP_INFO(this->clientNode_->get_logger(), "Response: %d", this->timeStampType_.load());
                 RCLCPP_INFO(this->clientNode_->get_logger(), "Local time: %f s", this->initTime_.seconds());
                 RCLCPP_INFO(this->clientNode_->get_logger(), "Reference time: %f s", this->refTime_.seconds());
                 RCLCPP_INFO(this->clientNode_->get_logger(), "Transport time: %f ms", (nowTime - this->initTime_).nanoseconds() / 1000000.0);
