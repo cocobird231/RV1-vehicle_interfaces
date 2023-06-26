@@ -158,7 +158,7 @@ private:
     rclcpp::Time initTime_;
     rclcpp::Time refTime_;
     rclcpp::Duration* correctDuration_;
-    uint8_t timeStampType_;
+    std::atomic<uint8_t> timeStampType_;
     
     std::shared_ptr<rclcpp::Node> clientNode_;
     rclcpp::Client<vehicle_interfaces::srv::TimeSync>::SharedPtr client_;
@@ -289,7 +289,7 @@ public:
                 RCLCPP_INFO(this->clientNode_->get_logger(), "Local time: %f s", this->initTime_.seconds());
                 RCLCPP_INFO(this->clientNode_->get_logger(), "Reference time: %f s", this->refTime_.seconds());
                 RCLCPP_INFO(this->clientNode_->get_logger(), "Transport time: %f ms", (nowTime - this->initTime_).nanoseconds() / 1000000.0);
-                RCLCPP_INFO(this->clientNode_->get_logger(), "Correct duration: %f us",this->correctDuration_->nanoseconds() / 1000.0);
+                RCLCPP_INFO(this->clientNode_->get_logger(), "Correct duration: %f us", this->correctDuration_->nanoseconds() / 1000.0);
                 this->isSyncF_ = true;
                 return true;
             }
@@ -311,6 +311,13 @@ public:
     {
         return this->get_clock()->now() + this->_safeCall(this->correctDuration_, this->correctDurationLock_);
     }
+
+    rclcpp::Duration getCorrectDuration()
+    {
+        return this->_safeCall(this->correctDuration_, this->correctDurationLock_);
+    }
+
+    inline uint8_t getTimestampType() const { return this->timeStampType_; }
 };
 
 class TimeSyncServer : public rclcpp::Node
