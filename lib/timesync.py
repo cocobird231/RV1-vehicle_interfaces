@@ -60,7 +60,7 @@ class Timer():
         self.timerTH_.join()
 
 class TimeSyncNode(Node):
-    def __init__(self, nodeName : str, timeServiceName : str, syncInterval_ms : int = 10000):
+    def __init__(self, nodeName : str, timeServiceName : str, syncInterval_ms : float, syncAccuracy_ms : float):
         super().__init__(nodeName)
         self.clientNode_ = Node(nodeName + '_timesync_client')
         self.client_ = self.clientNode_.create_client(TimeSync, timeServiceName)
@@ -70,8 +70,7 @@ class TimeSyncNode(Node):
         self.refTime_ = Time()
         self.correctDuration_ = Duration(nanoseconds=0)
         self.timeStampType_ = Header.STAMPTYPE_NO_SYNC
-
-        self.correctDurationLock_ = threading.Lock()
+        self.timeSyncAccuracy_ms_ = syncAccuracy_ms
 
         print("[TimeSyncNode] Sync time from %s..." %timeServiceName)
         self.connToService()
@@ -84,14 +83,14 @@ class TimeSyncNode(Node):
         print("[TimeSyncNode] Time synced: %d\n" %self.isSyncF_)
 
         if (syncInterval_ms > 0):
-            self.timeSyncIntervals_ms = syncInterval_ms
-            self.timeSyncTimer_ = Timer(self.timeSyncIntervals_ms, self.timeSyncTimer_callback)
+            self.timeSyncIntervals_ms_ = syncInterval_ms
+            self.timeSyncTimer_ = Timer(self.timeSyncIntervals_ms_, self.timeSyncTimer_callback)
             self.timeSyncTimer_.start()
     
     def timeSyncTimer_callback(self):
         st = self.get_clock().now()
         try:
-            while ((not self.syncTime()) and ((self.get_clock().now() - st).nanoseconds / 1000000.0 < self.timeSyncIntervals_ms)):
+            while ((not self.syncTime()) and ((self.get_clock().now() - st).nanoseconds / 1000000.0 < self.timeSyncIntervals_ms_)):
                 time.sleep(0.5)
             if (not self.isSyncF_):
                 print("[TimeSyncNode::timeSyncTimer_callback] Time sync failed.")
@@ -121,7 +120,7 @@ class TimeSyncNode(Node):
             nowTime = self.get_clock().now()
             response = future.result()
             self.initTime_ = Time.from_msg(response.request_time)
-            if ((nowTime - self.initTime_).nanoseconds > 10000000.0):# If request and response time > 10ms, re-sync
+            if ((nowTime - self.initTime_).nanoseconds > self.timeSyncAccuracy_ms_ * 1000000.0):# If travel time > accuracy, re-sync
                 return False
 
             self.refTime_ = Time.from_msg(response.response_time) - Duration(nanoseconds=(nowTime - self.initTime_).nanoseconds * 0.5)
@@ -147,3 +146,8 @@ class TimeSyncNode(Node):
     def getTimestamp(self):
         return self.get_clock().now() + self.correctDuration_
     
+    def getCorrectDuration(self):
+        return self.correctDuration_
+    
+    def getTimestampType(self):
+        return self.timeStampType_
