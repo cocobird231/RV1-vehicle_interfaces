@@ -10,7 +10,7 @@ class GenericParams(Node):
         self.qosService = 'qos_0'
         self.safetyService = 'safety_0'
         self.timesyncService = 'timesync_0'
-        self.timesyncInterval_ms = 1000.0
+        self.timesyncInterval_ms = 10000.0
         self.timesyncAccuracy_ms = 2.0
 
         self.declare_parameter('nodeName', self.nodeName)
@@ -30,4 +30,4 @@ class GenericParams(Node):
         self.timesyncService = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncService').get_parameter_value())
         self.timesyncInterval_ms = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncInterval_ms').get_parameter_value())
         self.timesyncAccuracy_ms = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncAccuracy_ms').get_parameter_value())
-        self.nodeName += '_' + str(self.id) + '_node'
+        # self.nodeName += '_' + str(self.id) + '_node'

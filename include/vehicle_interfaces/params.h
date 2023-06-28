@@ -15,7 +15,7 @@ public:
     std::string qosService = "qos_0";
     std::string safetyService = "safety_0";
     std::string timesyncService = "timesync_0";
-    double timesyncInterval_ms = 1000.0;
+    double timesyncInterval_ms = 10000.0;
     double timesyncAccuracy_ms = 2.0;
 
 private:
@@ -30,7 +30,7 @@ private:
         this->get_parameter("timesyncAccuracy_ms", this->timesyncAccuracy_ms);
 
         // Change nodeName into "<nodeName>_<id>_node" format
-        this->nodeName += "_" + std::to_string(this->id) + "_node";
+        // this->nodeName += "_" + std::to_string(this->id) + "_node";
     }
 
 public:

@@ -32,46 +32,6 @@ private:
     std::thread callbackTH_;
 
 private:
-	template <typename T>
-	void _safeSave(T* ptr, const T value, std::mutex& lock)
-	{
-		std::lock_guard<std::mutex> _lock(lock);
-		*ptr = value;
-	}
-
-	template <typename T>
-	T _safeCall(const T* ptr, std::mutex& lock)
-	{
-		std::lock_guard<std::mutex> _lock(lock);
-		return *ptr;
-	}
-
-    void _timer()// Deprecated
-    {
-        while (!this->exitF_)
-        {
-            try
-            {
-                auto st = std::chrono::high_resolution_clock::now();
-                while (!this->exitF_ && this->activateF_ && (std::chrono::high_resolution_clock::now() - st < this->interval_))
-                    std::this_thread::yield();
-                if (!this->exitF_ && this->activateF_ && this->funcCallableF_)
-                {
-                    if (this->callbackTH_.joinable())
-                        this->callbackTH_.join();
-                    this->callbackTH_ = std::thread(&Timer::_tick, this);
-                }
-                std::this_thread::yield();
-            }
-            catch (const std::exception& e)
-            {
-                std::cerr << e.what() << '\n';
-            }
-        }
-        if (this->callbackTH_.joinable())
-            this->callbackTH_.join();
-    }
-
     void _timer_fixedRate()
     {
         while (!this->exitF_)
