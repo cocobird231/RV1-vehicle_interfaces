@@ -17,6 +17,9 @@
 
 using namespace std::chrono_literals;
 
+/*
+ * Timer
+ */
 class Timer
 {
 private:
@@ -110,10 +113,13 @@ public:
     }
 };
 
+
+
+/*
+ * TimeSyncNode
+ */
 class TimeSyncNode : virtual public rclcpp::Node
 {
-
-
 private:
     rclcpp::Time initTime_;
     rclcpp::Time refTime_;
@@ -280,6 +286,64 @@ public:
     inline uint8_t getTimestampType() const { return this->timeStampType_; }
 };
 
+
+
+class PseudoTimeSyncNode : virtual public rclcpp::Node
+{
+private:
+    rclcpp::Duration* correctDuration_;
+    std::atomic<uint8_t> timeStampType_;
+
+    std::mutex correctDurationLock_;
+
+private:
+	template <typename T>
+	void _safeSave(T* ptr, const T value, std::mutex& lock)
+	{
+		std::lock_guard<std::mutex> _lock(lock);
+		*ptr = value;
+	}
+
+	template <typename T>
+	T _safeCall(const T* ptr, std::mutex& lock)
+	{
+		std::lock_guard<std::mutex> _lock(lock);
+		return *ptr;
+	}
+
+public:
+    PseudoTimeSyncNode(const std::string& nodeName) : 
+        rclcpp::Node(nodeName), 
+        timeStampType_(vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC)
+    {
+        this->correctDuration_ = new rclcpp::Duration(0, 0);
+    }
+
+    bool syncTime(rclcpp::Duration offset, uint8_t type)
+    {
+        std::lock_guard<std::mutex> locker(this->correctDurationLock_);
+        *this->correctDuration_ = offset;
+        this->timeStampType_ = type;
+    }
+
+    rclcpp::Time getTimestamp()
+    {
+        return this->get_clock()->now() + this->_safeCall(this->correctDuration_, this->correctDurationLock_);
+    }
+
+    rclcpp::Duration getCorrectDuration()
+    {
+        return this->_safeCall(this->correctDuration_, this->correctDurationLock_);
+    }
+
+    inline uint8_t getTimestampType() const { return this->timeStampType_; }
+};
+
+
+
+/*
+ * TimeSyncServer
+ */
 class TimeSyncServer : public rclcpp::Node
 {
 private:
