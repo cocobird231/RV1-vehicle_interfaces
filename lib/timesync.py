@@ -97,7 +97,7 @@ class TimeSyncNode(Node):
     def timeSyncTimer_callback(self):
         st = self.get_clock().now()
         try:
-            retryDur = 2000.0 if self.timeSyncIntervals_ms_ * 0.5 > 2000.0 else self.timeSyncIntervals_ms_ * 0.5
+            retryDur = 5000.0 if self.timeSyncIntervals_ms_ * 0.5 > 5000.0 else self.timeSyncIntervals_ms_ * 0.5
             while ((not self.syncTime()) and ((self.get_clock().now() - st).nanoseconds / 1000000.0 < retryDur)):
                 time.sleep(0.5)
             if (not self.isSyncF_):

@@ -207,7 +207,7 @@ public:
         this->timeSyncTimerInterval_ = std::chrono::duration<double, std::milli>(syncInterval_ms);
         this->timeSyncAccuracy_ = std::chrono::duration<double, std::nano>(syncAccuracy_ms * 1000000.0);
 
-        this->retryDur_ = this->timeSyncTimerInterval_ * 0.5;
+        this->retryDur_ = std::chrono::duration<double, std::milli>(5000.0);// First wait 5sec at most
         /*
         // Wait until service connection completed
         printf("[TimeSyncNode] Sync time from %s...\n", timeServiceName.c_str());
@@ -225,6 +225,7 @@ public:
         printf("[TimeSyncNode] Time synced: %d\n", this->isSyncF_.load());
         */
         this->timeSyncTimer_callback_();
+        this->retryDur_ = this->timeSyncTimerInterval_ * 0.5;
         if (syncInterval_ms > 0)
         {
             this->timeSyncTimer_ = new Timer(syncInterval_ms, std::bind(&TimeSyncNode::timeSyncTimer_callback_, this));
