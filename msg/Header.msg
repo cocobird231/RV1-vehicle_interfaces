@@ -23,7 +23,7 @@ uint8 STAMPTYPE_NO_SYNC = 0
 uint8 STAMPTYPE_NONE_UTC_SYNC = 1
 uint8 STAMPTYPE_UTC_SYNC = 2
 
-float32 VERSION = 1.5
+float32 VERSION = 1.6
 
 uint8 priority 2
 uint8 device_type 0
@@ -31,6 +31,6 @@ string device_id
 uint64 frame_id 0
 uint8 stamp_type 0
 builtin_interfaces/Time stamp
-builtin_interfaces/Duration stamp_offset
+int64 stamp_offset
 
 float32 ref_publish_time_ms
