@@ -17,8 +17,10 @@
 
 using namespace std::chrono_literals;
 
-/*
- * Timer
+namespace vehicle_interfaces
+{
+
+/* Timer
  */
 class Timer
 {
@@ -115,8 +117,11 @@ public:
 
 
 
-/*
- * TimeSyncNode
+/* The TimeSyncNode class implements the time sync mechanisms, which calling time sync server in a given fixed rate, and update the offset value 
+ * between local timestamp and time sync server.
+ * The nodes can easily inherit the TimeSyncNode to get time sync supported. The getTimestamp() function returns the corrected timestamp, the 
+ * getCorrectDuration() function returns the correction offset, and calling getTimestampType() function can get the timestamp type defined by 
+ * Header under vehicle_interfaces. Manually process time sync is possible by calling syncTime().
  */
 class TimeSyncNode : virtual public rclcpp::Node
 {
@@ -136,21 +141,23 @@ private:
     std::atomic<bool> isSyncF_;
     std::mutex correctDurationLock_;
 
+    std::chrono::duration<double, std::milli> retryDur_;
+
 private:
-	template <typename T>
-	void _safeSave(T* ptr, const T value, std::mutex& lock)
-	{
-		std::lock_guard<std::mutex> _lock(lock);
-		*ptr = value;
-	}
+    template <typename T>
+    void _safeSave(T* ptr, const T value, std::mutex& lock)
+    {
+        std::lock_guard<std::mutex> _lock(lock);
+        *ptr = value;
+    }
 
-	template <typename T>
-	T _safeCall(const T* ptr, std::mutex& lock)
-	{
-		std::lock_guard<std::mutex> _lock(lock);
-		return *ptr;
-	}
-
+    template <typename T>
+    T _safeCall(const T* ptr, std::mutex& lock)
+    {
+        std::lock_guard<std::mutex> _lock(lock);
+        return *ptr;
+    }
+    /*
     void connToService()
     {
         while (!this->client_->wait_for_service(1s))
@@ -163,14 +170,14 @@ private:
             RCLCPP_INFO(this->clientNode_->get_logger(), "service not available, waiting again...");
         }
     }
-
+    */
     void timeSyncTimer_callback_()
     {
         std::cout << "timeSyncTimer_callback_" << std::endl;
         auto st = std::chrono::high_resolution_clock::now();
         try
         {
-            while (!this->syncTime() && (std::chrono::high_resolution_clock::now() - st < this->timeSyncTimerInterval_))
+            while (!this->syncTime() && (std::chrono::high_resolution_clock::now() - st < this->retryDur_))
                 std::this_thread::sleep_for(500ms);
             if (!this->isSyncF_)
                 printf("[TimeSyncNode::timeSyncTimer_callback_] Time sync failed.\n");
@@ -197,8 +204,12 @@ public:
         this->refTime_ = rclcpp::Time();
         this->correctDuration_ = new rclcpp::Duration(0, 0);
         this->timeStampType_ = vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
+        this->timeSyncTimerInterval_ = std::chrono::duration<double, std::milli>(syncInterval_ms);
         this->timeSyncAccuracy_ = std::chrono::duration<double, std::nano>(syncAccuracy_ms * 1000000.0);
-        
+
+        this->retryDur_ = this->timeSyncTimerInterval_ * 0.5;
+        /*
+        // Wait until service connection completed
         printf("[TimeSyncNode] Sync time from %s...\n", timeServiceName.c_str());
         this->connToService();
         std::this_thread::sleep_for(200ms);
@@ -212,10 +223,10 @@ public:
             std::cerr << "[TimeSyncNode] Unexpected Error" << e.what() << std::endl;
         }
         printf("[TimeSyncNode] Time synced: %d\n", this->isSyncF_.load());
-
+        */
+        this->timeSyncTimer_callback_();
         if (syncInterval_ms > 0)
         {
-            this->timeSyncTimerInterval_ = std::chrono::duration<double, std::milli>(syncInterval_ms);
             this->timeSyncTimer_ = new Timer(syncInterval_ms, std::bind(&TimeSyncNode::timeSyncTimer_callback_, this));
             this->timeSyncTimer_->start();
         }
@@ -297,19 +308,19 @@ private:
     std::mutex correctDurationLock_;
 
 private:
-	template <typename T>
-	void _safeSave(T* ptr, const T value, std::mutex& lock)
-	{
-		std::lock_guard<std::mutex> _lock(lock);
-		*ptr = value;
-	}
+    template <typename T>
+    void _safeSave(T* ptr, const T value, std::mutex& lock)
+    {
+        std::lock_guard<std::mutex> _lock(lock);
+        *ptr = value;
+    }
 
-	template <typename T>
-	T _safeCall(const T* ptr, std::mutex& lock)
-	{
-		std::lock_guard<std::mutex> _lock(lock);
-		return *ptr;
-	}
+    template <typename T>
+    T _safeCall(const T* ptr, std::mutex& lock)
+    {
+        std::lock_guard<std::mutex> _lock(lock);
+        return *ptr;
+    }
 
 public:
     PseudoTimeSyncNode(const std::string& nodeName) : 
@@ -341,8 +352,7 @@ public:
 
 
 
-/*
- * TimeSyncServer
+/* TimeSyncServer
  */
 class TimeSyncServer : public rclcpp::Node
 {
@@ -376,3 +386,5 @@ public:
         RCLCPP_INFO(this->get_logger(), "[TimeSyncServer] Constructed");
     }
 };
+
+}// namespace vehicle_interfaces

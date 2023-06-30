@@ -13,6 +13,15 @@
 using namespace std::chrono_literals;
 using namespace std::placeholders;
 
+namespace vehicle_interfaces
+{
+
+/* The QoSUpdateNode class implements the QoS update mechanisms, including a subscription of QoS update topic and a client for QoS update service.
+ * The publish or subscription node can easily inherit the QoSUpdateNode, and adding callback function with addQoSCallbackFunc() to get callback 
+ * while QoS policy updated. 
+ * The QoS update mechanisms relying on the name of topics, so it's necessary to add topic names to QoSUpdateNode by calling addQoSTracking() to 
+ * tracks whether the QoS of specific topic needs to be update.
+ */
 class QoSUpdateNode : virtual public rclcpp::Node
 {
 private:
@@ -141,3 +150,5 @@ public:
         throw "Request QoS Failed";// Request QoS failed
     }
 };
+
+}// namespace vehicle_interfaces

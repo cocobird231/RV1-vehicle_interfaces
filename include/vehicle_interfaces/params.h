@@ -3,10 +3,10 @@
 namespace vehicle_interfaces
 {
 
-/* GenericParams class defines the generic settings for ros2 node and extended services, e.g., 
+/* The GenericParams class defines the generic settings for ros2 node and extended services, e.g., 
  * time sync service, safety service and qos service, etc..
  * The configure file can be stored under launch directory in each package.
-*/
+ */
 class GenericParams : public rclcpp::Node
 {
 public:

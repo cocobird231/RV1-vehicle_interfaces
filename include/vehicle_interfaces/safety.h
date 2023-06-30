@@ -18,6 +18,11 @@
 
 using namespace std::chrono_literals;
 
+namespace vehicle_interfaces
+{
+
+/* SafetyNode
+ */
 class SafetyNode : virtual public rclcpp::Node
 {
 private:
@@ -228,3 +233,5 @@ public:
         RCLCPP_INFO(this->get_logger(), "[SafetyReqServer] Constructed");
     }
 };
+
+}

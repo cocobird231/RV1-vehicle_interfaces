@@ -12,6 +12,7 @@ from rclpy.duration import Duration
 from vehicle_interfaces.msg import Header
 from vehicle_interfaces.srv import TimeSync
 
+# TODO: Need to be improved
 class Timer():
     def __init__(self, interval_ms : float, cb) -> None:
         self.interval_ms_ = interval_ms
@@ -59,6 +60,9 @@ class Timer():
         self.exitF_ = True
         self.timerTH_.join()
 
+'''
+TimeSyncNode error occurs while using Node.create_timer(). Use Timer() instead.
+'''
 class TimeSyncNode(Node):
     def __init__(self, nodeName : str, timeServiceName : str, syncInterval_ms : float, syncAccuracy_ms : float):
         super().__init__(nodeName)
@@ -70,8 +74,10 @@ class TimeSyncNode(Node):
         self.refTime_ = Time()
         self.correctDuration_ = Duration(nanoseconds=0)
         self.timeStampType_ = Header.STAMPTYPE_NO_SYNC
+        self.timeSyncIntervals_ms_ = syncInterval_ms
         self.timeSyncAccuracy_ms_ = syncAccuracy_ms
-
+        '''
+        # Wait until service connection completed
         print("[TimeSyncNode] Sync time from %s..." %timeServiceName)
         self.connToService()
         time.sleep(0.2)
@@ -81,16 +87,18 @@ class TimeSyncNode(Node):
         except Exception as e:
             print("[TimeSyncNode] Unexpected Error", e)
         print("[TimeSyncNode] Time synced: %d\n" %self.isSyncF_)
-
+        '''
+        self.timeSyncTimer_callback()
         if (syncInterval_ms > 0):
-            self.timeSyncIntervals_ms_ = syncInterval_ms
             self.timeSyncTimer_ = Timer(self.timeSyncIntervals_ms_, self.timeSyncTimer_callback)
             self.timeSyncTimer_.start()
+            # self.timeSyncTimer_ = self.create_timer(syncInterval_ms / 1000.0, self.timeSyncTimer_callback)# TODO: freezed while wait_set.is_ready Error
     
     def timeSyncTimer_callback(self):
         st = self.get_clock().now()
         try:
-            while ((not self.syncTime()) and ((self.get_clock().now() - st).nanoseconds / 1000000.0 < self.timeSyncIntervals_ms_)):
+            retryDur = 2000.0 if self.timeSyncIntervals_ms_ * 0.5 > 2000.0 else self.timeSyncIntervals_ms_ * 0.5
+            while ((not self.syncTime()) and ((self.get_clock().now() - st).nanoseconds / 1000000.0 < retryDur)):
                 time.sleep(0.5)
             if (not self.isSyncF_):
                 print("[TimeSyncNode::timeSyncTimer_callback] Time sync failed.")
@@ -99,12 +107,12 @@ class TimeSyncNode(Node):
             print("[TimeSyncNode::timeSyncTimer_callback] Correct duration: %f us" %(self.correctDuration_.nanoseconds / 1000.0))
         except Exception as e:
             print("[TimeSyncNode::timeSyncTimer_callback] Unexpected Error", e)
-    
+    '''
     def connToService(self):
         while (not self.client_.wait_for_service(timeout_sec=0.5)):
             self.clientNode_.get_logger().info('service not available, waiting again...')
         self.clientNode_.get_logger().info('Time service connected.')
-    
+    '''
     def syncTime(self):
         try:
             self.isSyncF_ = False
