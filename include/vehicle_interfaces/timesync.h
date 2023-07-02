@@ -143,6 +143,9 @@ private:
 
     std::chrono::duration<double, std::milli> retryDur_;
 
+    // Node enable
+    std::atomic<bool> nodeEnableF;
+
 private:
     template <typename T>
     void _safeSave(T* ptr, const T value, std::mutex& lock)
@@ -195,8 +198,11 @@ public:
     TimeSyncNode(const std::string& nodeName, 
                     const std::string& timeServiceName, 
                     double syncInterval_ms, 
-                    double syncAccuracy_ms) : rclcpp::Node(nodeName)
+                    double syncAccuracy_ms) : rclcpp::Node(nodeName), 
+        nodeEnableF(false)
     {
+        if (timeServiceName == "")
+            return;
         this->clientNode_ = rclcpp::Node::make_shared(nodeName + "_timesync_client");
         this->client_ = this->clientNode_->create_client<vehicle_interfaces::srv::TimeSync>(timeServiceName);
         this->isSyncF_ = false;
@@ -231,10 +237,13 @@ public:
             this->timeSyncTimer_ = new Timer(syncInterval_ms, std::bind(&TimeSyncNode::timeSyncTimer_callback_, this));
             this->timeSyncTimer_->start();
         }
+        this->nodeEnableF = true;
     }
 
     bool syncTime()
     {
+        if (!this->nodeEnableF)
+            return false;
         try
         {
             this->isSyncF_ = false;
@@ -287,15 +296,24 @@ public:
 
     rclcpp::Time getTimestamp()
     {
+        if (!this->nodeEnableF)
+            return this->get_clock()->now();
         return this->get_clock()->now() + this->_safeCall(this->correctDuration_, this->correctDurationLock_);
     }
 
     rclcpp::Duration getCorrectDuration()
     {
+        if (!this->nodeEnableF)
+            return rclcpp::Duration(0, 0);
         return this->_safeCall(this->correctDuration_, this->correctDurationLock_);
     }
 
-    inline uint8_t getTimestampType() const { return this->timeStampType_; }
+    inline uint8_t getTimestampType() const
+    {
+        if (!this->nodeEnableF)
+            return vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
+        return this->timeStampType_;
+    }
 };
 
 

@@ -39,6 +39,9 @@ private:
     std::atomic<bool> callbackF_;
     std::function<void(QoSUpdateNode*, std::map<std::string, rclcpp::QoS*>)> qosCallbackFunc_;
 
+    // Node enable
+    std::atomic<bool> nodeEnableF;
+
 private:
     void _topic_callback(const vehicle_interfaces::msg::QosUpdate::SharedPtr msg)
     {
@@ -70,7 +73,8 @@ private:
 
     void _connToService(rclcpp::ClientBase::SharedPtr client)
     {
-        while (!client->wait_for_service(1s))
+        int errCnt = 5;
+        while (!client->wait_for_service(1s) && errCnt-- > 0)
         {
             if (!rclcpp::ok())
             {
@@ -79,6 +83,7 @@ private:
             }
             RCLCPP_INFO(this->get_logger(), "service not available, waiting again...");
         }
+        RCLCPP_ERROR(this->get_logger(), "Connect to service failed.");
     }
 
     rmw_time_t _splitTime(const double& time_ms)
@@ -87,21 +92,27 @@ private:
     }
 
 public:
-    QoSUpdateNode(std::string nodeName, std::string qosTopicName, std::string qosServiceName) : rclcpp::Node(nodeName), 
+    QoSUpdateNode(std::string nodeName, std::string qosServiceName) : rclcpp::Node(nodeName), 
         qosID_(0), 
-        callbackF_(false)
+        callbackF_(false), 
+        nodeEnableF(false)
     {
+        if (qosServiceName == "")
+            return;
         this->reqClientNode_ = rclcpp::Node::make_shared(nodeName + "_qosreq_client");
         this->reqClient_ = this->reqClientNode_->create_client<vehicle_interfaces::srv::QosReq>(qosServiceName + "_Req");
         printf("[QoSUpdateNode] Connecting to qosreq server: %s\n", qosServiceName.c_str());
         this->_connToService(this->reqClient_);
 
-        this->subscription_ = this->create_subscription<vehicle_interfaces::msg::QosUpdate>(qosTopicName, 
+        this->subscription_ = this->create_subscription<vehicle_interfaces::msg::QosUpdate>(qosServiceName, 
             10, std::bind(&QoSUpdateNode::_topic_callback, this, std::placeholders::_1));
+        this->nodeEnableF = true;
     }
 
     void addQoSTracking(const std::string& topicName)
     {
+        if (!this->nodeEnableF)
+            return;
         std::lock_guard<std::mutex> locker(this->subscriptionLock_);
         for (auto& i : this->qosTopicNameVec_)
             if (i == topicName)
@@ -112,6 +123,8 @@ public:
 
     void addQoSCallbackFunc(const std::function<void(QoSUpdateNode*, std::map<std::string, rclcpp::QoS*>)>& func)
     {
+        if (!this->nodeEnableF)
+            return;
         std::lock_guard<std::mutex> locker(this->subscriptionLock_);
         this->qosCallbackFunc_ = func;
         this->callbackF_ = true;
@@ -119,6 +132,8 @@ public:
 
     rclcpp::QoS* requestQoS(const std::string& topicName)
     {
+        if (!this->nodeEnableF)
+            throw "Request QoS Failed";// Request QoS failed
         auto request = std::make_shared<vehicle_interfaces::srv::QosReq::Request>();
         request->topic_name = topicName;
         auto result = this->reqClient_->async_send_request(request);

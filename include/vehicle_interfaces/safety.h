@@ -32,6 +32,9 @@ private:
     std::shared_ptr<rclcpp::Node> reqClientNode_;
     rclcpp::Client<vehicle_interfaces::srv::SafetyReq>::SharedPtr reqClient_;
 
+    // Node enable
+    std::atomic<bool> nodeEnableF;
+
 private:
 	template <typename T>
 	void _safeSave(T* ptr, const T value, std::mutex& lock)
@@ -62,8 +65,11 @@ private:
     }
 
 public:
-    SafetyNode(std::string nodeName, std::string safetyServiceName) : rclcpp::Node(nodeName)
+    SafetyNode(std::string nodeName, std::string safetyServiceName) : rclcpp::Node(nodeName), 
+        nodeEnableF(false)
     {
+        if (safetyServiceName == "")
+            return;
         this->regClientNode_ = rclcpp::Node::make_shared(nodeName + "_safetyreg_client");
         this->regClient_ = this->regClientNode_->create_client<vehicle_interfaces::srv::SafetyReg>(safetyServiceName + "_Reg");
         printf("[SafetyNode] Connecting to safetyreg server: %s\n", safetyServiceName.c_str());
@@ -75,10 +81,13 @@ public:
         this->connToService(this->reqClient_);
 
         std::this_thread::sleep_for(200ms);
+        this->nodeEnableF = true;
     }
 
     bool setEmergency(std::string devID, float emP)// Return true if success
     {
+        if (!this->nodeEnableF)
+            return false;
         auto request = std::make_shared<vehicle_interfaces::srv::SafetyReg::Request>();
         request->device_id = devID;
         request->emergency_percentage = emP;
@@ -98,6 +107,8 @@ public:
 
     bool getEmergency(std::string devID, float& outEm)// Return true if success
     {
+        if (!this->nodeEnableF)
+            return false;
         auto request = std::make_shared<vehicle_interfaces::srv::SafetyReq::Request>();
         request->device_id = devID;
         auto result = this->reqClient_->async_send_request(request);
@@ -119,6 +130,8 @@ public:
 
     bool getEmergencies(std::map<std::string, float>& outDevEmMap)// Return true if success
     {
+        if (!this->nodeEnableF)
+            return false;
         auto request = std::make_shared<vehicle_interfaces::srv::SafetyReq::Request>();
         request->device_id = "all";
         auto result = this->reqClient_->async_send_request(request);
