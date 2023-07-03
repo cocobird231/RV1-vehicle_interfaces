@@ -144,7 +144,7 @@ private:
     std::chrono::duration<double, std::milli> retryDur_;
 
     // Node enable
-    std::atomic<bool> nodeEnableF;
+    std::atomic<bool> nodeEnableF_;
 
 private:
     template <typename T>
@@ -160,20 +160,25 @@ private:
         std::lock_guard<std::mutex> _lock(lock);
         return *ptr;
     }
-    /*
-    void connToService()
+
+    void _connToService(rclcpp::ClientBase::SharedPtr client)
     {
-        while (!this->client_->wait_for_service(1s))
+        int errCnt = 5;
+        while (!client->wait_for_service(1s) && errCnt-- > 0)
         {
             if (!rclcpp::ok())
             {
-                RCLCPP_ERROR(this->clientNode_->get_logger(), "Interrupted while waiting for the service. Exiting.");
+                RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_connToService] Interrupted while waiting for the service. Exiting.");
                 return;
             }
-            RCLCPP_INFO(this->clientNode_->get_logger(), "service not available, waiting again...");
+            RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_connToService] Service not available, waiting again...");
         }
+        if (errCnt < 0)
+            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_connToService] Connect to service failed.");
+        else
+            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_connToService] Service connected.");
     }
-    */
+
     void timeSyncTimer_callback_()
     {
         std::cout << "timeSyncTimer_callback_" << std::endl;
@@ -199,7 +204,7 @@ public:
                     const std::string& timeServiceName, 
                     double syncInterval_ms, 
                     double syncAccuracy_ms) : rclcpp::Node(nodeName), 
-        nodeEnableF(false)
+        nodeEnableF_(false)
     {
         if (timeServiceName == "")
             return;
@@ -214,22 +219,7 @@ public:
         this->timeSyncAccuracy_ = std::chrono::duration<double, std::nano>(syncAccuracy_ms * 1000000.0);
 
         this->retryDur_ = std::chrono::duration<double, std::milli>(5000.0);// First wait 5sec at most
-        /*
-        // Wait until service connection completed
-        printf("[TimeSyncNode] Sync time from %s...\n", timeServiceName.c_str());
-        this->connToService();
-        std::this_thread::sleep_for(200ms);
-        try
-        {
-            while (!this->syncTime())
-                std::this_thread::sleep_for(500ms);
-        }
-        catch (const std::exception& e)
-        {
-            std::cerr << "[TimeSyncNode] Unexpected Error" << e.what() << std::endl;
-        }
-        printf("[TimeSyncNode] Time synced: %d\n", this->isSyncF_.load());
-        */
+        // this->_connToService(this->client_);
         this->timeSyncTimer_callback_();
         this->retryDur_ = this->timeSyncTimerInterval_ * 0.5;
         if (syncInterval_ms > 0)
@@ -237,12 +227,12 @@ public:
             this->timeSyncTimer_ = new Timer(syncInterval_ms, std::bind(&TimeSyncNode::timeSyncTimer_callback_, this));
             this->timeSyncTimer_->start();
         }
-        this->nodeEnableF = true;
+        this->nodeEnableF_ = true;
     }
 
     bool syncTime()
     {
-        if (!this->nodeEnableF)
+        if (!this->nodeEnableF_)
             return false;
         try
         {
@@ -296,21 +286,21 @@ public:
 
     rclcpp::Time getTimestamp()
     {
-        if (!this->nodeEnableF)
+        if (!this->nodeEnableF_)
             return this->get_clock()->now();
         return this->get_clock()->now() + this->_safeCall(this->correctDuration_, this->correctDurationLock_);
     }
 
     rclcpp::Duration getCorrectDuration()
     {
-        if (!this->nodeEnableF)
+        if (!this->nodeEnableF_)
             return rclcpp::Duration(0, 0);
         return this->_safeCall(this->correctDuration_, this->correctDurationLock_);
     }
 
     inline uint8_t getTimestampType() const
     {
-        if (!this->nodeEnableF)
+        if (!this->nodeEnableF_)
             return vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
         return this->timeStampType_;
     }

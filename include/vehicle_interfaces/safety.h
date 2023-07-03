@@ -33,7 +33,7 @@ private:
     rclcpp::Client<vehicle_interfaces::srv::SafetyReq>::SharedPtr reqClient_;
 
     // Node enable
-    std::atomic<bool> nodeEnableF;
+    std::atomic<bool> nodeEnableF_;
 
 private:
 	template <typename T>
@@ -51,42 +51,47 @@ private:
 	}
 
 
-    void connToService(rclcpp::ClientBase::SharedPtr client)
+    void _connToService(rclcpp::ClientBase::SharedPtr client)
     {
-        while (!client->wait_for_service(1s))
+        int errCnt = 5;
+        while (!client->wait_for_service(1s) && errCnt-- > 0)
         {
             if (!rclcpp::ok())
             {
-                RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
+                RCLCPP_ERROR(this->get_logger(), "[SafetyNode::_connToService] Interrupted while waiting for the service. Exiting.");
                 return;
             }
-            RCLCPP_INFO(this->get_logger(), "service not available, waiting again...");
+            RCLCPP_INFO(this->get_logger(), "[SafetyNode::_connToService] Service not available, waiting again...");
         }
+        if (errCnt < 0)
+            RCLCPP_ERROR(this->get_logger(), "[SafetyNode::_connToService] Connect to service failed.");
+        else
+            RCLCPP_ERROR(this->get_logger(), "[SafetyNode::_connToService] Service connected.");
     }
 
 public:
     SafetyNode(std::string nodeName, std::string safetyServiceName) : rclcpp::Node(nodeName), 
-        nodeEnableF(false)
+        nodeEnableF_(false)
     {
         if (safetyServiceName == "")
             return;
         this->regClientNode_ = rclcpp::Node::make_shared(nodeName + "_safetyreg_client");
         this->regClient_ = this->regClientNode_->create_client<vehicle_interfaces::srv::SafetyReg>(safetyServiceName + "_Reg");
         printf("[SafetyNode] Connecting to safetyreg server: %s\n", safetyServiceName.c_str());
-        this->connToService(this->regClient_);
+        this->_connToService(this->regClient_);
 
         this->reqClientNode_ = rclcpp::Node::make_shared(nodeName + "_safetyreq_client");
         this->reqClient_ = this->reqClientNode_->create_client<vehicle_interfaces::srv::SafetyReq>(safetyServiceName + "_Req");
         printf("[SafetyNode] Connecting to safetyreq server: %s\n", safetyServiceName.c_str());
-        this->connToService(this->reqClient_);
+        this->_connToService(this->reqClient_);
 
         std::this_thread::sleep_for(200ms);
-        this->nodeEnableF = true;
+        this->nodeEnableF_ = true;
     }
 
     bool setEmergency(std::string devID, float emP)// Return true if success
     {
-        if (!this->nodeEnableF)
+        if (!this->nodeEnableF_)
             return false;
         auto request = std::make_shared<vehicle_interfaces::srv::SafetyReg::Request>();
         request->device_id = devID;
@@ -107,7 +112,7 @@ public:
 
     bool getEmergency(std::string devID, float& outEm)// Return true if success
     {
-        if (!this->nodeEnableF)
+        if (!this->nodeEnableF_)
             return false;
         auto request = std::make_shared<vehicle_interfaces::srv::SafetyReq::Request>();
         request->device_id = devID;
@@ -130,7 +135,7 @@ public:
 
     bool getEmergencies(std::map<std::string, float>& outDevEmMap)// Return true if success
     {
-        if (!this->nodeEnableF)
+        if (!this->nodeEnableF_)
             return false;
         auto request = std::make_shared<vehicle_interfaces::srv::SafetyReq::Request>();
         request->device_id = "all";

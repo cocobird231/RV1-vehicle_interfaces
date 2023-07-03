@@ -40,7 +40,7 @@ private:
     std::function<void(QoSUpdateNode*, std::map<std::string, rclcpp::QoS*>)> qosCallbackFunc_;
 
     // Node enable
-    std::atomic<bool> nodeEnableF;
+    std::atomic<bool> nodeEnableF_;
 
 private:
     void _topic_callback(const vehicle_interfaces::msg::QosUpdate::SharedPtr msg)
@@ -50,6 +50,8 @@ private:
         
         if (msg->qid == this->qosID_)// Ignore update in same qos ID
             return;
+
+        bool errF = false;
         
         std::map<std::string, rclcpp::QoS*> qmap;
 
@@ -61,14 +63,27 @@ private:
             {
                 if (myTopic == newTopic)
                 {
-                    qmap[myTopic] = this->requestQoS(myTopic);
+                    try
+                    {
+                        qmap[myTopic] = this->requestQoS(myTopic);
+                    }
+                    catch(...)
+                    {
+                        errF = true;
+                    }
                     break;
                 }
             }
         }
         locker.unlock();
+
+        if (errF)
+            return;
+        
         if (qmap.size() > 0)
             this->qosCallbackFunc_(this, qmap);
+        
+        this->qosID_ = msg->qid;
     }
 
     void _connToService(rclcpp::ClientBase::SharedPtr client)
@@ -78,12 +93,15 @@ private:
         {
             if (!rclcpp::ok())
             {
-                RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
+                RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::_connToService] Interrupted while waiting for the service. Exiting.");
                 return;
             }
-            RCLCPP_INFO(this->get_logger(), "service not available, waiting again...");
+            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_connToService] Service not available, waiting again...");
         }
-        RCLCPP_ERROR(this->get_logger(), "Connect to service failed.");
+        if (errCnt < 0)
+            RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::_connToService] Connect to service failed.");
+        else
+            RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::_connToService] Service connected.");
     }
 
     rmw_time_t _splitTime(const double& time_ms)
@@ -95,7 +113,7 @@ public:
     QoSUpdateNode(std::string nodeName, std::string qosServiceName) : rclcpp::Node(nodeName), 
         qosID_(0), 
         callbackF_(false), 
-        nodeEnableF(false)
+        nodeEnableF_(false)
     {
         if (qosServiceName == "")
             return;
@@ -106,12 +124,12 @@ public:
 
         this->subscription_ = this->create_subscription<vehicle_interfaces::msg::QosUpdate>(qosServiceName, 
             10, std::bind(&QoSUpdateNode::_topic_callback, this, std::placeholders::_1));
-        this->nodeEnableF = true;
+        this->nodeEnableF_ = true;
     }
 
     void addQoSTracking(const std::string& topicName)
     {
-        if (!this->nodeEnableF)
+        if (!this->nodeEnableF_)
             return;
         std::lock_guard<std::mutex> locker(this->subscriptionLock_);
         for (auto& i : this->qosTopicNameVec_)
@@ -123,7 +141,7 @@ public:
 
     void addQoSCallbackFunc(const std::function<void(QoSUpdateNode*, std::map<std::string, rclcpp::QoS*>)>& func)
     {
-        if (!this->nodeEnableF)
+        if (!this->nodeEnableF_)
             return;
         std::lock_guard<std::mutex> locker(this->subscriptionLock_);
         this->qosCallbackFunc_ = func;
@@ -132,7 +150,7 @@ public:
 
     rclcpp::QoS* requestQoS(const std::string& topicName)
     {
-        if (!this->nodeEnableF)
+        if (!this->nodeEnableF_)
             throw "Request QoS Failed";// Request QoS failed
         auto request = std::make_shared<vehicle_interfaces::srv::QosReq::Request>();
         request->topic_name = topicName;
@@ -158,7 +176,7 @@ public:
                 prof.liveliness = (rmw_qos_liveliness_policy_t)res->liveliness;
                 prof.liveliness_lease_duration = this->_splitTime(res->liveliness_lease_duration_ms);
 
-                this->qosID_ = res->qid;
+                // this->qosID_ = res->qid;
                 return new rclcpp::QoS(rclcpp::QoSInitialization(prof.history, prof.depth), prof);
             }
         }

@@ -14,10 +14,7 @@ public:
         QoSUpdateNode(gParams->nodeName, gParams->qosService), 
         SafetyNode(gParams->nodeName, gParams->safetyService), 
         TimeSyncNode(gParams->nodeName, gParams->timesyncService, gParams->timesyncInterval_ms, gParams->timesyncAccuracy_ms), 
-        rclcpp::Node(gParams->nodeName)
-    {
-        
-    }
+        rclcpp::Node(gParams->nodeName) {}
 };
 
 }

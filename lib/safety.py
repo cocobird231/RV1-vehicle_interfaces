@@ -4,30 +4,44 @@ from rclpy.node import Node
 from vehicle_interfaces.srv import SafetyReg
 from vehicle_interfaces.srv import SafetyReq
 
-class SafetyNode(Node):
-    def __init__(self, nodeName : str, safetyServiceName : str):
-        super().__init__(nodeName)
-        self.regClientNode_ = Node(nodeName + '_safetyreg_client')
-        self.regClient_ = self.regClientNode_.create_client(SafetyReg, safetyServiceName + "_Reg")
-        print("[SafetyNode] Connecting to safetyreg server: %s\n" %(safetyServiceName + "_Reg"))
-        self.connToService(self.regClient_)
+from vehicle_interfaces.node_adaptor import NodeAdaptor
 
-        self.reqClientNode_ = Node(nodeName + '_safetyreq_client')
-        self.reqClient_ = self.reqClientNode_.create_client(SafetyReq, safetyServiceName + "_Req")
+class SafetyNode(NodeAdaptor):
+    def __init__(self, nodeName : str, safetyServiceName : str):
+        NodeAdaptor.__init__(self, nodeName)
+        self.__nodeEnableF = False
+        if (safetyServiceName == ''):
+            return
+        self.__regClientNode = Node(nodeName + '_safetyreg_client')
+        self.__regClient = self.__regClientNode.create_client(SafetyReg, safetyServiceName + "_Reg")
+        print("[SafetyNode] Connecting to safetyreg server: %s\n" %(safetyServiceName + "_Reg"))
+        self.__connToService(self.__regClient)
+
+        self.__reqClientNode = Node(nodeName + '_safetyreq_client')
+        self.__reqClient = self.__reqClientNode.create_client(SafetyReq, safetyServiceName + "_Req")
         print("[SafetyNode] Connecting to safetyreq server: %s\n" %(safetyServiceName + "_Req"))
-        self.connToService(self.reqClient_)
+        self.__connToService(self.__reqClient)
+
+        self.__nodeEnableF = True
     
-    def connToService(self, client):
-        while (not client.wait_for_service(timeout_sec=0.5)):
-            self.get_logger().info('[SafetyNode.connToService] service not available, waiting again...')
-        self.get_logger().info('[SafetyNode.connToService] service connected.')
+    def __connToService(self, client):
+        errCnt = 5
+        while (not client.wait_for_service(timeout_sec=0.5) and errCnt > 0):
+            errCnt -= 1
+            self.get_logger().info('[SafetyNode.__connToService] service not available, waiting again...')
+        if (errCnt <= 0):
+            self.get_logger().info('[SafetyNode.__connToService] Connect to service failed.')
+        else:
+            self.get_logger().info('[SafetyNode.__connToService] Service connected.')
     
     def setEmergency(self, devID, emP):
+        if (not self.__nodeEnableF):
+            return False
         request = SafetyReg.Request()
         request.device_id = devID
         request.emergency_percentage = emP
-        future = self.regClient_.call_async(request)
-        rclpy.spin_until_future_complete(self.regClientNode_, future, timeout_sec=0.01)
+        future = self.__regClient.call_async(request)
+        rclpy.spin_until_future_complete(self.__regClientNode, future, timeout_sec=0.01)
         if (not future.done()):
             self.get_logger().info('[SafetyNode.setEmergency] Failed to call service')
             return False
@@ -39,10 +53,12 @@ class SafetyNode(Node):
     
     # return float >= 0 if request succeed
     def getEmergency(self, devID):
+        if (not self.__nodeEnableF):
+            return -1
         request = SafetyReq.Request()
         request.device_id = devID
-        future = self.reqClient_.call_async(request)
-        rclpy.spin_until_future_complete(self.reqClientNode_, future, timeout_sec=0.01)
+        future = self.__reqClient.call_async(request)
+        rclpy.spin_until_future_complete(self.__reqClientNode, future, timeout_sec=0.01)
         if (not future.done()):
             self.get_logger().info('[SafetyNode.getEmergency] Failed to call service')
             return -1
@@ -54,10 +70,12 @@ class SafetyNode(Node):
     
     # return dict({id : emP})
     def getEmergencies(self):
+        if (not self.__nodeEnableF):
+            return dict()
         request = SafetyReq.Request()
         request.device_id = "all"
-        future = self.reqClient_.call_async(request)
-        rclpy.spin_until_future_complete(self.reqClientNode_, future, timeout_sec=0.01)
+        future = self.__reqClient.call_async(request)
+        rclpy.spin_until_future_complete(self.__reqClientNode, future, timeout_sec=0.01)
         if (not future.done()):
             self.get_logger().info('[SafetyNode.getEmergencies] Failed to call service')
             return dict()
