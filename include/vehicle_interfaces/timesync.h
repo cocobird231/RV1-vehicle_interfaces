@@ -176,7 +176,7 @@ private:
         if (errCnt < 0)
             RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_connToService] Connect to service failed.");
         else
-            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_connToService] Service connected.");
+            RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_connToService] Service connected.");
     }
 
     void timeSyncTimer_callback_()
@@ -220,6 +220,8 @@ public:
 
         this->retryDur_ = std::chrono::duration<double, std::milli>(5000.0);// First wait 5sec at most
         // this->_connToService(this->client_);
+        this->nodeEnableF_ = true;
+
         this->timeSyncTimer_callback_();
         this->retryDur_ = this->timeSyncTimerInterval_ * 0.5;
         if (syncInterval_ms > 0)
@@ -227,7 +229,6 @@ public:
             this->timeSyncTimer_ = new Timer(syncInterval_ms, std::bind(&TimeSyncNode::timeSyncTimer_callback_, this));
             this->timeSyncTimer_->start();
         }
-        this->nodeEnableF_ = true;
     }
 
     bool syncTime()

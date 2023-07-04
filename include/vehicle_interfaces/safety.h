@@ -66,7 +66,7 @@ private:
         if (errCnt < 0)
             RCLCPP_ERROR(this->get_logger(), "[SafetyNode::_connToService] Connect to service failed.");
         else
-            RCLCPP_ERROR(this->get_logger(), "[SafetyNode::_connToService] Service connected.");
+            RCLCPP_INFO(this->get_logger(), "[SafetyNode::_connToService] Service connected.");
     }
 
 public:

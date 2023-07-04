@@ -101,7 +101,7 @@ private:
         if (errCnt < 0)
             RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::_connToService] Connect to service failed.");
         else
-            RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::_connToService] Service connected.");
+            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_connToService] Service connected.");
     }
 
     rmw_time_t _splitTime(const double& time_ms)
