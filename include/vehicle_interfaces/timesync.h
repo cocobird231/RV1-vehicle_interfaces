@@ -388,9 +388,9 @@ private:
     }
 
 public:
-    TimeSyncServer(std::string nodeName, std::string timeServiceName) : rclcpp::Node(nodeName)
+    TimeSyncServer(const std::string& nodeName, const std::string& serviceName) : rclcpp::Node(nodeName)
     {
-        this->server_ = this->create_service<vehicle_interfaces::srv::TimeSync>(timeServiceName, 
+        this->server_ = this->create_service<vehicle_interfaces::srv::TimeSync>(serviceName, 
             std::bind(&TimeSyncServer::_serviceCallback, this, std::placeholders::_1, std::placeholders::_2));
         this->isUTCSync = false;
         RCLCPP_INFO(this->get_logger(), "[TimeSyncServer] Constructed");

@@ -1,0 +1,50 @@
+# QoS Profile Registration
+
+## Set topic_name QoS profile into temporary qmap
+string topic_name
+
+## Device type corresponds to vehicle_interfaces header DEVTYPE_XXX definitions (preserve)
+uint8 dev_type
+
+## Remove topic_name profile in temporary qmap. If true, server will ignore this QoS profile
+bool remove_profile 0
+
+## Clear temporary qmap. If true, server will ignore this QoS profile. 
+bool clear_profiles 0
+
+## Set ture if all QoS profile setting completed. If true, server will ignore this QoS profile
+bool save_qmap 0
+
+
+# QoS Profile Setting
+
+## Ref to enum rmw_qos_history_policy_t
+int8 history
+
+## Ref to size_t depth
+int64 depth
+
+## Ref to enum rmw_qos_reliability_policy_t
+int8 reliability
+
+## Ref to enum rmw_qos_durability_policy_t
+int8 durability
+
+## Ref to struct rmw_time_t deadline
+float64 deadline_ms
+
+## Ref to struct rmw_time_t lifespan
+float64 lifespan_ms
+
+## Ref to enum rmw_qos_liveliness_policy_t
+int8 liveliness
+
+## Ref to struct rmw_time_t liveliness_lease_duration
+float64 liveliness_lease_duration_ms
+
+---
+# response is true if value accepted, otherwise server ignore the request and response false
+bool response
+
+# Unique ID describes current qos profile. qid changed while save_qmap requests true
+uint64 qid

@@ -48,6 +48,7 @@ set(msg_geo_files
 
 set(srv_files
   "srv/IDServer.srv"
+  "srv/QosReg.srv"
   "srv/QosReq.srv"
   "srv/SafetyReg.srv"
   "srv/SafetyReq.srv"
