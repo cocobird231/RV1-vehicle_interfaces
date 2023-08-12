@@ -40,10 +40,14 @@ set(msg_files
   "msg/WheelState.msg"
 )
 
+set(msg_content_files
+  "msg_content/QosProfile.msg"
+)
+
 set(msg_geo_files
-  "msg_geo/BBox2D.msg"
-  "msg_geo/Point2D.msg"
-  "msg_geo/Size2D.msg"
+  "msg_geo/Bbox2d.msg"
+  "msg_geo/Point2d.msg"
+  "msg_geo/Size2d.msg"
 )
 
 set(srv_files
@@ -56,7 +60,7 @@ set(srv_files
 )
 
 ## Build
-rosidl_generate_interfaces(${PROJECT_NAME} ${msg_files} ${msg_geo_files} ${srv_files} DEPENDENCIES builtin_interfaces)
+rosidl_generate_interfaces(${PROJECT_NAME} ${msg_files} ${msg_content_files} ${msg_geo_files} ${srv_files} DEPENDENCIES builtin_interfaces)
 
 
 ## Install

@@ -11,5 +11,5 @@ uint16 width
 uint16 height
 
 # RoIs and ground line
-vehicle_interfaces/BBox2D[] roi
+vehicle_interfaces/Bbox2d[] roi
 int16[] ground_line # Pixel position (ignore value < 0). Array size must fit image width

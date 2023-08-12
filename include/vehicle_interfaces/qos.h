@@ -1,3 +1,4 @@
+#pragma once
 #include <chrono>
 #include <functional>
 #include <memory>
@@ -12,8 +13,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "vehicle_interfaces/utils.h"
-#include "vehicle_interfaces/params.h"
 #include "vehicle_interfaces/timesync.h"
+#include "vehicle_interfaces/msg/qos_profile.hpp"
 #include "vehicle_interfaces/msg/qos_update.hpp"
 #include "vehicle_interfaces/srv/qos_reg.hpp"
 #include "vehicle_interfaces/srv/qos_req.hpp"
@@ -23,6 +24,8 @@ using namespace std::placeholders;
 
 namespace vehicle_interfaces
 {
+
+typedef std::map<std::string, rclcpp::QoS*> QoSMap;
 
 // double ms to rmw_time_s
 inline rmw_time_s CvtMsgToRMWTime(const double& time_ms)
@@ -45,48 +48,55 @@ inline int CompRMWTime(const rmw_time_s& rmwT1, const rmw_time_s& rmwT2)
     return ret > 0 ? 1 : (ret < 0 ? -1 : 0);
 }
 
-std::shared_ptr<vehicle_interfaces::srv::QosReq::Response> CvtRMWQoSToMsg(const rmw_qos_profile_t& prof)
+vehicle_interfaces::msg::QosProfile CvtRMWQoSToMsg(const rmw_qos_profile_t& prof)
 {
-    std::shared_ptr<vehicle_interfaces::srv::QosReq::Response> ret;
-    ret->history = prof.history;
-    ret->depth = prof.depth;
-    ret->reliability = prof.reliability;
-    ret->durability = prof.durability;
-    ret->deadline_ms = CvtRMWTimeToMsg(prof.deadline);
-    ret->lifespan_ms = CvtRMWTimeToMsg(prof.lifespan);
-    ret->liveliness = prof.liveliness;
-    ret->liveliness_lease_duration_ms = CvtRMWTimeToMsg(prof.liveliness_lease_duration);
+    vehicle_interfaces::msg::QosProfile ret;
+    ret.history = prof.history;
+    ret.depth = prof.depth;
+    ret.reliability = prof.reliability;
+    ret.durability = prof.durability;
+    ret.deadline_ms = CvtRMWTimeToMsg(prof.deadline);
+    ret.lifespan_ms = CvtRMWTimeToMsg(prof.lifespan);
+    ret.liveliness = prof.liveliness;
+    ret.liveliness_lease_duration_ms = CvtRMWTimeToMsg(prof.liveliness_lease_duration);
     return ret;
 }
 
-rmw_qos_profile_t CvtMsgToRMWQoS(const std::shared_ptr<vehicle_interfaces::srv::QosReg::Request> req)
+rmw_qos_profile_t CvtMsgToRMWQoS(const vehicle_interfaces::msg::QosProfile& msg)
 {
     rmw_qos_profile_t prof;
-    prof.history = (rmw_qos_history_policy_t)req->history;
-    prof.depth = req->depth;
-    prof.reliability = (rmw_qos_reliability_policy_t)req->reliability;
-    prof.durability = (rmw_qos_durability_policy_t)req->durability;
-    prof.deadline = CvtMsgToRMWTime(req->deadline_ms);
-    prof.lifespan = CvtMsgToRMWTime(req->lifespan_ms);
-    prof.liveliness = (rmw_qos_liveliness_policy_t)req->liveliness;
-    prof.liveliness_lease_duration = CvtMsgToRMWTime(req->liveliness_lease_duration_ms);
+    prof.history = (rmw_qos_history_policy_e)msg.history;
+    prof.depth = msg.depth;
+    prof.reliability = (rmw_qos_reliability_policy_e)msg.reliability;
+    prof.durability = (rmw_qos_durability_policy_e)msg.durability;
+    prof.deadline = CvtMsgToRMWTime(msg.deadline_ms);
+    prof.lifespan = CvtMsgToRMWTime(msg.lifespan_ms);
+    prof.liveliness = (rmw_qos_liveliness_policy_e)msg.liveliness;
+    prof.liveliness_lease_duration = CvtMsgToRMWTime(msg.liveliness_lease_duration_ms);
     return prof;
 }
 
-rmw_qos_profile_t CvtMsgToRMWQoS(const std::shared_ptr<vehicle_interfaces::srv::QosReq::Response> res)
+std::string getQoSProfEnumName(rmw_qos_reliability_policy_e value)
 {
-    rmw_qos_profile_t prof;
-    prof.history = (rmw_qos_history_policy_t)res->history;
-    prof.depth = res->depth;
-    prof.reliability = (rmw_qos_reliability_policy_t)res->reliability;
-    prof.durability = (rmw_qos_durability_policy_t)res->durability;
-    prof.deadline = CvtMsgToRMWTime(res->deadline_ms);
-    prof.lifespan = CvtMsgToRMWTime(res->lifespan_ms);
-    prof.liveliness = (rmw_qos_liveliness_policy_t)res->liveliness;
-    prof.liveliness_lease_duration = CvtMsgToRMWTime(res->liveliness_lease_duration_ms);
-    return prof;
+    switch (value)
+    {
+        case rmw_qos_reliability_policy_e::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT:
+            return "BEST_EFFORT";
+            break;
+        case rmw_qos_reliability_policy_e::RMW_QOS_POLICY_RELIABILITY_RELIABLE:
+            return "RELIABLE";
+            break;
+        case rmw_qos_reliability_policy_e::RMW_QOS_POLICY_RELIABILITY_SYSTEM_DEFAULT:
+            return "SYSTEM_DEFAULT";
+            break;
+        case rmw_qos_reliability_policy_e::RMW_QOS_POLICY_RELIABILITY_UNKNOWN:
+            return "UNKNOWN";
+            break;
+        default:
+            return "UNKNOWN";
+            break;
+    }
 }
-
 
 /* The QoSUpdateNode class implements the QoS update mechanisms, including a subscription of QoS update topic and a client for QoS update service.
  * The publish or subscription node can easily inherit the QoSUpdateNode, and adding callback function with addQoSCallbackFunc() to get callback 
@@ -109,7 +119,7 @@ private:
 
     // QoS Changed Callback
     std::atomic<bool> callbackF_;
-    std::function<void(QoSUpdateNode*, std::map<std::string, rclcpp::QoS*>)> qosCallbackFunc_;
+    std::function<void(QoSMap)> qosCallbackFunc_;
 
     // Node enable
     std::atomic<bool> nodeEnableF_;
@@ -123,9 +133,11 @@ private:
         if (msg->qid == this->qosID_)// Ignore update in same qos ID
             return;
 
+        RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] qid: %d", msg->qid);
+
         bool errF = false;
         
-        std::map<std::string, rclcpp::QoS*> qmap;
+        QoSMap qmap;
 
         std::unique_lock<std::mutex> locker(this->subscriptionLock_, std::defer_lock);
         locker.lock();
@@ -135,25 +147,34 @@ private:
             {
                 if (myTopic == newTopic)
                 {
-                    try
-                    {
-                        qmap[myTopic] = this->requestQoS(myTopic);
-                    }
-                    catch(...)
-                    {
-                        errF = true;
-                    }
+                    qmap[myTopic] = nullptr;
                     break;
                 }
             }
         }
         locker.unlock();
 
+        for (auto& [k, v] : qmap)
+        {
+            try
+            {
+                qmap[k] = this->requestQoS(k);
+            }
+            catch(...)
+            {
+                RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Request error: %s", k.c_str());
+                errF = true;
+            }
+        }
+
         if (errF)
             return;
         
         if (qmap.size() > 0)
-            this->qosCallbackFunc_(this, qmap);
+        {
+            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] qmap size: %d", qmap.size());
+            this->qosCallbackFunc_(qmap);
+        }
         
         this->qosID_ = msg->qid;
     }
@@ -206,7 +227,7 @@ public:
         this->qosID_ = 0;
     }
 
-    void addQoSCallbackFunc(const std::function<void(QoSUpdateNode*, std::map<std::string, rclcpp::QoS*>)>& func)
+    void addQoSCallbackFunc(const std::function<void(QoSMap)>& func)
     {
         if (!this->nodeEnableF_)
             return;
@@ -223,31 +244,29 @@ public:
         request->topic_name = topicName;
         auto result = this->reqClient_->async_send_request(request);
 #if ROS_DISTRO == 0
-        if (rclcpp::spin_until_future_complete(this->reqClientNode_, result, 10ms) == rclcpp::executor::FutureReturnCode::SUCCESS)
+        if (rclcpp::spin_until_future_complete(this->reqClientNode_, result, 100ms) == rclcpp::executor::FutureReturnCode::SUCCESS)
 #else
-        if (rclcpp::spin_until_future_complete(this->reqClientNode_, result, 10ms) == rclcpp::FutureReturnCode::SUCCESS)
+        if (rclcpp::spin_until_future_complete(this->reqClientNode_, result, 100ms) == rclcpp::FutureReturnCode::SUCCESS)
 #endif
         {
             auto res = result.get();
             if (res->response)
             {
                 std::lock_guard<std::mutex> locker(this->subscriptionLock_);
-
-                rmw_qos_profile_t prof;
-                prof.history = (rmw_qos_history_policy_t)res->history;
-                prof.depth = res->depth;
-                prof.reliability = (rmw_qos_reliability_policy_t)res->reliability;
-                prof.durability = (rmw_qos_durability_policy_t)res->durability;
-                prof.deadline = CvtMsgToRMWTime(res->deadline_ms);
-                prof.lifespan = CvtMsgToRMWTime(res->lifespan_ms);
-                prof.liveliness = (rmw_qos_liveliness_policy_t)res->liveliness;
-                prof.liveliness_lease_duration = CvtMsgToRMWTime(res->liveliness_lease_duration_ms);
-
+                rmw_qos_profile_t prof = CvtMsgToRMWQoS(res->qos_profile);
+                RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Profile get: %s, %d", getQoSProfEnumName(prof.reliability).c_str(), prof.depth);
                 // this->qosID_ = res->qid;
                 return new rclcpp::QoS(rclcpp::QoSInitialization(prof.history, prof.depth), prof);
             }
         }
+        RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::requestQoS] Request error.");
         throw "Request QoS Failed";// Request QoS failed
+    }
+
+    rclcpp::QoS* getLatestQoS()
+    {
+        // TODO
+        throw "Unsupported.";
     }
 };
 
@@ -271,6 +290,7 @@ private:
     std::atomic<uint64_t> qid_;
 
     // Controllable parameters
+    rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr paramsCallbackHandler;
     bool enablePubF_;
     double pubInterval_ms_;
     std::mutex paramsLock_;
@@ -285,10 +305,11 @@ private:
 
     rcl_interfaces::msg::SetParametersResult _paramsCallback(const std::vector<rclcpp::Parameter>& params)
     {
+        RCLCPP_INFO(this->get_logger(), "[QoSServer::_paramsCallback]");
         std::unique_lock<std::mutex> locker(this->paramsLock_, std::defer_lock);
 
         rcl_interfaces::msg::SetParametersResult res;
-        res.successful = true;
+        res.successful = false;
         res.reason = "";
 
         for (const auto& param : params)
@@ -312,6 +333,7 @@ private:
                     this->pubInterval_ms_ = param.as_double();
                     this->pubTimer_->setInterval(this->pubInterval_ms_);
                     locker.unlock();
+                    res.successful = true;
                 }
             }
             catch (...)
@@ -320,7 +342,6 @@ private:
                 res.reason = "[QoSServer::_paramsCallback] Caught Unknown Exception!";
             }
         }
-
         return res;
     }
 
@@ -339,13 +360,15 @@ private:
         }
         else if (request->remove_profile)
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: remove %s [%d]");
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: remove %s [%d]", 
+                request->topic_name.c_str(), request->dev_type);
             this->removeTmpQoSProfile(request->topic_name);
         }
         else
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: set %s [%d]");
-            this->setTmpQoSProfile(request->topic_name, CvtMsgToRMWQoS(request));
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: set %s [%d]", 
+                request->topic_name.c_str(), request->dev_type);
+            this->setTmpQoSProfile(request->topic_name, CvtMsgToRMWQoS(request->qos_profile));
         }
         response->response = true;
         response->qid = this->qid_.load();
@@ -369,14 +392,14 @@ private:
         {
             // Topic name not listed in qmap
             rclcpp::QoS* ret = new rclcpp::QoS(10);
-            response = CvtRMWQoSToMsg(ret->get_rmw_qos_profile());
+            response->qos_profile = CvtRMWQoSToMsg(ret->get_rmw_qos_profile());
             response->response = false;
             response->qid = this->qid_.load();
         }
         else
         {
             // Found topic name
-            response = CvtRMWQoSToMsg(qmapTmp[request->topic_name]);
+            response->qos_profile = CvtRMWQoSToMsg(qmapTmp[request->topic_name]);
             response->response = true;
             response->qid = this->qid_.load();
         }
@@ -445,8 +468,8 @@ private:
     }
 
 public:
-    QoSServer(const std::string& nodeName, const std::string& serviceName, double pubInterval_ms) : rclcpp::Node(nodeName), 
-        qid_(0), enablePubF_(false), pubInterval_ms_(pubInterval_ms), nodeName_(nodeName)
+    QoSServer(const std::string& nodeName, const std::string& serviceName) : rclcpp::Node(nodeName), 
+        qid_(0), enablePubF_(false), pubInterval_ms_(10000), nodeName_(nodeName)
     {
         this->declare_parameter<bool>("enabled_publish", this->enablePubF_);
         this->declare_parameter<double>("publish_interval_ms", this->pubInterval_ms_);
@@ -459,12 +482,10 @@ public:
             std::bind(&QoSServer::_reqServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
 
         this->pub_ = this->create_publisher<vehicle_interfaces::msg::QosUpdate>(serviceName, 10);
+        this->pubTimer_ = new Timer(this->pubInterval_ms_, std::bind(&QoSServer::_timerCallback, this));
 
-        if (pubInterval_ms > 0)
-            this->pubTimer_ = new Timer(pubInterval_ms, std::bind(&QoSServer::_timerCallback, this));
-        else
-            this->pubTimer_ = nullptr;
-        
+        this->paramsCallbackHandler = this->add_on_set_parameters_callback(std::bind(&QoSServer::_paramsCallback, this, std::placeholders::_1));
+
         RCLCPP_INFO(this->get_logger(), "[QoSServer] Constructed");
     }
 

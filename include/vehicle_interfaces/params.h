@@ -1,3 +1,4 @@
+#pragma once
 #include "rclcpp/rclcpp.hpp"
 
 namespace vehicle_interfaces
@@ -11,6 +12,7 @@ class GenericParams : public rclcpp::Node
 {
 public:
     std::string nodeName = "node";
+    std::string ns = "";
     uint8_t id = 0;
     std::string qosService = "qos_0";
     std::string safetyService = "safety_0";
@@ -22,6 +24,7 @@ private:
     void _getParams()
     {
         this->get_parameter("nodeName", this->nodeName);
+        this->get_parameter("ns", this->ns);
         this->get_parameter("id", this->id);
         this->get_parameter("qosService", this->qosService);
         this->get_parameter("safetyService", this->safetyService);
@@ -37,6 +40,7 @@ public:
     GenericParams(std::string nodeName) : Node(nodeName)
     {
         this->declare_parameter<std::string>("nodeName", this->nodeName);
+        this->declare_parameter<std::string>("ns", this->ns);
         this->declare_parameter<int>("id", this->id);
         this->declare_parameter<std::string>("qosService", this->qosService);
         this->declare_parameter<std::string>("safetyService", this->safetyService);
