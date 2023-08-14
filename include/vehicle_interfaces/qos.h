@@ -134,10 +134,8 @@ private:
             return;
 
         RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] qid: %d", msg->qid);
-
-        bool errF = false;
         
-        QoSMap qmap;
+        std::vector<std::string> topicVec;
 
         std::unique_lock<std::mutex> locker(this->subscriptionLock_, std::defer_lock);
         locker.lock();
@@ -147,28 +145,25 @@ private:
             {
                 if (myTopic == newTopic)
                 {
-                    qmap[myTopic] = nullptr;
+                    topicVec.push_back(myTopic);
                     break;
                 }
             }
         }
         locker.unlock();
-
-        for (auto& [k, v] : qmap)
+        
+        QoSMap qmap;
+        for (const auto& topic : topicVec)
         {
             try
             {
-                qmap[k] = this->requestQoS(k);
+                qmap[topic] = this->requestQoS(topic);
             }
             catch(...)
             {
-                RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Request error: %s", k.c_str());
-                errF = true;
+                RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Request error: %s", topic.c_str());
             }
         }
-
-        if (errF)
-            return;
         
         if (qmap.size() > 0)
         {

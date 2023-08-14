@@ -9,6 +9,10 @@ from vehicle_interfaces.srv import QosReq
 
 from vehicle_interfaces.node_adaptor import NodeAdaptor
 
+# The qmap in python version defined as { str : rclpy.QoSProfile }, 
+# the rclpy.QoSProfile can directly pass into create_publisher() and create_subscription().
+
+# QoSUpdateNode will raised the callback function, which added by addQoSCallbackFunc, while qos profile updated.
 class QoSUpdateNode(NodeAdaptor):
     def __init__(self, nodeName : str, qosServiceName : str):
         NodeAdaptor.__init__(self, nodeName)
@@ -36,23 +40,24 @@ class QoSUpdateNode(NodeAdaptor):
         if (msg.qid == self.__qosID):# Ignore update in same qos ID
             return
         
-        errF = False
-        qmap = dict()
+        self.get_logger().info('[QoSUpdateNode.__topic_callback] qid: %d' %msg.qid)
 
+        topicVec = []
         for myTopic in self.__qosTopicNameVec:
             for newTopic in msg.topic_table:
                 if (myTopic == newTopic):
-                    try:
-                        qmap[myTopic] = self.requestQoS(myTopic)
-                    except:
-                        errF = True
+                    topicVec.append(myTopic)
                     break
-        
-        if (errF):
-            return
+
+        qmap = dict()
+        for topic in topicVec:
+            try:
+                qmap[topic] = self.requestQoS(topic)
+            except:
+                self.get_logger().info('[QoSUpdateNode.requestQoS] Request error: %s' %topic)
         
         if (len(qmap) > 0):
-            self.__qosCallbackFunc(this, qmap)
+            self.__qosCallbackFunc(qmap)
         
         self.__qosID = msg.qid
 
@@ -66,7 +71,7 @@ class QoSUpdateNode(NodeAdaptor):
         else:
             self.get_logger().info('[QoSUpdateNode.__connToService] Service connected.')
     
-    def __splitTime(time_ms : float):
+    def __splitTime(self, time_ms : float):
         return Duration(seconds=time_ms / 1000, nanoseconds=(time_ms - int(time_ms)) * 1000000)
 
     def addQoSTracking(self, topicName : str):
@@ -86,27 +91,29 @@ class QoSUpdateNode(NodeAdaptor):
 
     # Return QoSProfile
     def requestQoS(self, topicName : str):
-        if (self.__nodeEnableF):
+        if (not self.__nodeEnableF):
             raise "Request QoS Failed"# Request QoS failed
         request = QosReq.Request()
         request.topic_name = topicName
         future = self.__reqClient.call_async(request)
         rclpy.spin_until_future_complete(self.__reqClientNode, future, timeout_sec=0.1)
         if (not future.done()):
-            self.get_logger().info('[SafetyNode.getEmergency] Failed to call service')
+            self.get_logger().info('[QoSUpdateNode.requestQoS] Failed to call service')
             raise "Request QoS Failed"# Request QoS failed
         
         response = future.result()
+        self.get_logger().info('[QoSUpdateNode.requestQoS] Response: %d' %response.response)
         if (response.response):
-            prof = QoSProfile(history=response.history)
-            prof.history = response.history
-            prof.depth = response.depth
-            prof.reliability = response.reliability
-            prof.durability = response.durability
-            prof.deadline = self.__splitTime(response.deadline_ms)
-            prof.lifespan = self.__splitTime(response.lifespan_ms)
-            prof.liveliness = response.liveliness
-            prof.liveliness_lease_duration = self.__splitTime(response.liveliness_lease_duration_ms)
+            msg = response.qos_profile
+            prof = QoSProfile(history=msg.history)
+            prof.history = msg.history
+            prof.depth = msg.depth
+            prof.reliability = msg.reliability
+            prof.durability = msg.durability
+            prof.deadline = self.__splitTime(msg.deadline_ms)
+            prof.lifespan = self.__splitTime(msg.lifespan_ms)
+            prof.liveliness = msg.liveliness
+            prof.liveliness_lease_duration = self.__splitTime(msg.liveliness_lease_duration_ms)
 
             # self.__qosID = response.qid;
             return prof
