@@ -19,6 +19,9 @@
 #include "vehicle_interfaces/srv/qos_reg.hpp"
 #include "vehicle_interfaces/srv/qos_req.hpp"
 
+#include <fstream>
+#include "nlohmann/json.hpp"
+
 using namespace std::chrono_literals;
 using namespace std::placeholders;
 
@@ -33,7 +36,7 @@ inline rmw_time_s CvtMsgToRMWTime(const double& time_ms)
     return { time_ms / 1000, (time_ms - (uint64_t)time_ms) * 1000000 };
 }
 
-// rmw_time_s to double
+// rmw_time_s to double ms
 inline double CvtRMWTimeToMsg(const rmw_time_s& rmwT)
 {
     return rmwT.sec * 1000 + rmwT.nsec / 1000000.0;
@@ -98,6 +101,51 @@ std::string getQoSProfEnumName(rmw_qos_reliability_policy_e value)
     }
 }
 
+bool DumpRMWQoSToJSON(const fs::path& qosFilePath, const rmw_qos_profile_t& profile)
+{
+    try
+    {
+        nlohmann::json json;
+        json["history"] = (int8_t)profile.history;
+        json["depth"] = profile.depth;
+        json["reliability"] = (int8_t)profile.reliability;
+        json["durability"] = (int8_t)profile.durability;
+        json["deadline_ms"] = CvtRMWTimeToMsg(profile.deadline);
+        json["lifespan_ms"] = CvtRMWTimeToMsg(profile.lifespan);
+        json["liveliness"] = (int8_t)profile.liveliness;
+        json["liveliness_lease_duration_ms"] = CvtRMWTimeToMsg(profile.liveliness_lease_duration);
+        std::ofstream outFile(qosFilePath);
+        outFile << json;
+        return true;
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+bool LoadRMWQoSFromJSON(const fs::path& qosFilePath, rmw_qos_profile_t& profile)
+{
+    try
+    {
+        nlohmann::json json;
+        json.update(nlohmann::json::parse(std::ifstream(qosFilePath)));
+        profile.history = (rmw_qos_history_policy_e)json["history"];
+        profile.depth = json["depth"];
+        profile.reliability = (rmw_qos_reliability_policy_e)json["reliability"];
+        profile.durability = (rmw_qos_durability_policy_e)json["durability"];
+        profile.deadline = CvtMsgToRMWTime(json["deadline_ms"]);
+        profile.lifespan = CvtMsgToRMWTime(json["lifespan_ms"]);
+        profile.liveliness = (rmw_qos_liveliness_policy_e)json["liveliness"];
+        profile.liveliness_lease_duration = CvtMsgToRMWTime(json["liveliness_lease_duration_ms"]);
+        return true;
+    }
+    catch(...)
+    {
+        return false;
+    }
+}
+
 /* The QoSUpdateNode class implements the QoS update mechanisms, including a subscription of QoS update topic and a client for QoS update service.
  * The publish or subscription node can easily inherit the QoSUpdateNode, and adding callback function with addQoSCallbackFunc() to get callback 
  * while QoS policy updated. 
@@ -120,6 +168,9 @@ private:
     // QoS Changed Callback
     std::atomic<bool> callbackF_;
     std::function<void(QoSMap)> qosCallbackFunc_;
+
+    // QoS file path
+    fs::path qosDirPath_;
 
     // Node enable
     std::atomic<bool> nodeEnableF_;
@@ -161,80 +212,119 @@ private:
             }
             catch(...)
             {
-                RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Request error: %s", topic.c_str());
+                RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::requestQoS] Request error: %s", topic.c_str());
             }
         }
         
         if (qmap.size() > 0)
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] qmap size: %d", qmap.size());
             this->qosCallbackFunc_(qmap);
+
+            locker.lock();
+            {// Dump QoS profile
+                for (const auto& [k, v] : qmap)
+                {
+                    std::string tn = k;
+                    vehicle_interfaces::replace_all(tn, "/", "_");
+                    DumpRMWQoSToJSON(this->qosDirPath_ / (tn + ".json"), v->get_rmw_qos_profile());
+                    RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] Dump QoS profile: %s", 
+                        (this->qosDirPath_ / (tn + ".json")).generic_string().c_str());
+                }
+            }
+            locker.unlock();
         }
         
         this->qosID_ = msg->qid;
     }
 
-    void _connToService(rclcpp::ClientBase::SharedPtr client)
-    {
-        int errCnt = 5;
-        while (!client->wait_for_service(1s) && errCnt-- > 0)
-        {
-            if (!rclcpp::ok())
-            {
-                RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::_connToService] Interrupted while waiting for the service. Exiting.");
-                return;
-            }
-            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_connToService] Service not available, waiting again...");
-        }
-        if (errCnt < 0)
-            RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::_connToService] Connect to service failed.");
-        else
-            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_connToService] Service connected.");
-    }
-
 public:
-    QoSUpdateNode(std::string nodeName, std::string qosServiceName) : rclcpp::Node(nodeName), 
+    QoSUpdateNode(const std::string& nodeName, const std::string& qosServiceName, const std::string& qosDirPath) : rclcpp::Node(nodeName), 
+        qosDirPath_(qosDirPath), 
         qosID_(0), 
         callbackF_(false), 
         nodeEnableF_(false)
     {
         if (qosServiceName == "")
             return;
+        
+        {// Check QoS directory
+            char buf[512];
+            sprintf(buf, "mkdir -p %s", qosDirPath_.generic_string().c_str());
+            system(buf);
+        }
+
         this->reqClientNode_ = rclcpp::Node::make_shared(nodeName + "_qosreq_client");
         this->reqClient_ = this->reqClientNode_->create_client<vehicle_interfaces::srv::QosReq>(qosServiceName + "_Req");
-        printf("[QoSUpdateNode] Connecting to qosreq server: %s\n", qosServiceName.c_str());
-        this->_connToService(this->reqClient_);
 
         this->subscription_ = this->create_subscription<vehicle_interfaces::msg::QosUpdate>(qosServiceName, 
             10, std::bind(&QoSUpdateNode::_topic_callback, this, std::placeholders::_1));
         this->nodeEnableF_ = true;
+        RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode] Constructed.");
     }
 
-    void addQoSTracking(const std::string& topicName)
+    void addQoSTracking(std::string topicName, rclcpp::QoS* outQoS)
     {
         if (!this->nodeEnableF_)
             return;
+        
+        if (topicName.length() <= 0)
+            return;
+
+        if (strlen(this->get_namespace()) > 0)// Namespace exists
+        {
+            if (topicName.find(this->get_namespace()) == std::string::npos)
+            {
+                if (topicName[0] == '/')
+                    topicName = std::string(this->get_namespace()) + topicName;
+                else
+                    topicName = std::string(this->get_namespace()) + "/" + topicName;
+            }
+        }
+
         std::lock_guard<std::mutex> locker(this->subscriptionLock_);
+
         for (auto& i : this->qosTopicNameVec_)
             if (i == topicName)
                 return;
+
+        {// Load QoS profile
+            // Topic name trans
+            std::string tn = topicName;
+            vehicle_interfaces::replace_all(tn, "/", "_");
+
+            rmw_qos_profile_t prof;
+            if (LoadRMWQoSFromJSON(this->qosDirPath_ / (tn + ".json"), prof))
+            {
+                outQoS = new rclcpp::QoS(rclcpp::QoSInitialization(prof.history, prof.depth), prof);
+                RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] Found QoS profile: depth: %d reliability: %d durability: %d", 
+                    prof.depth, prof.reliability, prof.durability);
+            }
+            else
+            {
+                outQoS = new rclcpp::QoS(10);
+                RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] QoS profile not found. Set to default.");
+            }
+        }
+        
         this->qosTopicNameVec_.push_back(topicName);
-        this->qosID_ = 0;
     }
 
     void addQoSCallbackFunc(const std::function<void(QoSMap)>& func)
     {
         if (!this->nodeEnableF_)
             return;
+
         std::lock_guard<std::mutex> locker(this->subscriptionLock_);
         this->qosCallbackFunc_ = func;
         this->callbackF_ = true;
     }
 
-    rclcpp::QoS* requestQoS(const std::string& topicName)
+    rclcpp::QoS* requestQoS(std::string topicName)
     {
         if (!this->nodeEnableF_)
             throw "Request QoS Failed";// Request QoS failed
+        RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Request %s QoS profile...", topicName.c_str());
+
         auto request = std::make_shared<vehicle_interfaces::srv::QosReq::Request>();
         request->topic_name = topicName;
         auto result = this->reqClient_->async_send_request(request);
@@ -245,16 +335,15 @@ public:
 #endif
         {
             auto res = result.get();
+            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Response: %d, qid: %ld", res->response, res->qid);
             if (res->response)
             {
-                std::lock_guard<std::mutex> locker(this->subscriptionLock_);
                 rmw_qos_profile_t prof = CvtMsgToRMWQoS(res->qos_profile);
                 RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Profile get: %s, %d", getQoSProfEnumName(prof.reliability).c_str(), prof.depth);
-                // this->qosID_ = res->qid;
                 return new rclcpp::QoS(rclcpp::QoSInitialization(prof.history, prof.depth), prof);
             }
         }
-        RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::requestQoS] Request error.");
+        RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::requestQoS] Request %s QoS profile failed.", topicName.c_str());
         throw "Request QoS Failed";// Request QoS failed
     }
 
@@ -481,7 +570,7 @@ public:
 
         this->paramsCallbackHandler = this->add_on_set_parameters_callback(std::bind(&QoSServer::_paramsCallback, this, std::placeholders::_1));
 
-        RCLCPP_INFO(this->get_logger(), "[QoSServer] Constructed");
+        RCLCPP_INFO(this->get_logger(), "[QoSServer] Constructed.");
     }
 
     ReasonResult<bool> startPublish()

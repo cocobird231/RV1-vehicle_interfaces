@@ -71,7 +71,7 @@ private:
     }
 
 public:
-    SafetyNode(std::string nodeName, std::string safetyServiceName) : rclcpp::Node(nodeName), 
+    SafetyNode(const std::string& nodeName, const std::string& safetyServiceName) : rclcpp::Node(nodeName), 
         nodeEnableF_(false)
     {
         if (safetyServiceName == "")
@@ -241,7 +241,7 @@ private:
     }
 
 public:
-    SafetyServer(std::string nodeName, std::string serviceName) : rclcpp::Node(nodeName)
+    SafetyServer(const std::string& nodeName, const std::string& serviceName) : rclcpp::Node(nodeName)
     {
         this->regServer_ = this->create_service<vehicle_interfaces::srv::SafetyReg>(serviceName + "_Reg", 
             std::bind(&SafetyServer::_regServerCallback, this, std::placeholders::_1, std::placeholders::_2));

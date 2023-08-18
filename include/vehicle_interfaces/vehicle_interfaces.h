@@ -12,9 +12,9 @@ class VehicleServiceNode : public QoSUpdateNode, public SafetyNode, public TimeS
 {
 public:
     VehicleServiceNode(const std::shared_ptr<GenericParams>& gParams) : 
-        QoSUpdateNode(gParams->nodeName, gParams->qosService), 
+        QoSUpdateNode(gParams->nodeName, gParams->qosService, gParams->qosDirPath), 
         SafetyNode(gParams->nodeName, gParams->safetyService), 
-        TimeSyncNode(gParams->nodeName, gParams->timesyncService, gParams->timesyncInterval_ms, gParams->timesyncAccuracy_ms), 
+        TimeSyncNode(gParams->nodeName, gParams->timesyncService, gParams->timesyncPeriod_ms, gParams->timesyncAccuracy_ms), 
         rclcpp::Node(gParams->nodeName) {}
 };
 
