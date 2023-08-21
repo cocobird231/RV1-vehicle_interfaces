@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 
 #include <thread>
 #include <atomic>
@@ -29,6 +30,7 @@ namespace vehicle_interfaces
 {
 
 typedef std::map<std::string, rclcpp::QoS*> QoSMap;
+typedef std::pair<std::string, rclcpp::QoS*> QoSPair;
 
 // double ms to rmw_time_s
 inline rmw_time_s CvtMsgToRMWTime(const double& time_ms)
@@ -162,7 +164,7 @@ private:
     // QoS Topic Definition
     rclcpp::Subscription<vehicle_interfaces::msg::QosUpdate>::SharedPtr subscription_;// QoS subscription
     std::atomic<uint64_t> qosID_;// Unique ID that describes current QoS' profile
-    std::vector<std::string> qosTopicNameVec_;// Topics QoS need to be tracked
+    std::set<std::string> qosTopicNameVec_;// Topics QoS need to be tracked
     std::mutex subscriptionLock_;// Prevent QoS callback conflict
 
     // QoS Changed Callback
@@ -262,13 +264,13 @@ public:
         RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode] Constructed.");
     }
 
-    void addQoSTracking(std::string topicName, rclcpp::QoS* outQoS)
+    QoSPair addQoSTracking(std::string topicName)
     {
         if (!this->nodeEnableF_)
-            return;
+            return {"", new rclcpp::QoS(10)};
         
         if (topicName.length() <= 0)
-            return;
+            return {"", new rclcpp::QoS(10)};
 
         if (strlen(this->get_namespace()) > 0)// Namespace exists
         {
@@ -281,32 +283,30 @@ public:
             }
         }
 
-        std::lock_guard<std::mutex> locker(this->subscriptionLock_);
+        std::unique_lock<std::mutex> locker(this->subscriptionLock_, std::defer_lock);
+        locker.lock();
+        this->qosTopicNameVec_.insert(topicName);
+        locker.unlock();
 
-        for (auto& i : this->qosTopicNameVec_)
-            if (i == topicName)
-                return;
+        // Preparing return qmap
+        QoSPair ret = {topicName, new rclcpp::QoS(10)};
 
-        {// Load QoS profile
-            // Topic name trans
-            std::string tn = topicName;
-            vehicle_interfaces::replace_all(tn, "/", "_");
+        // Load QoS profile
+        std::string tn = topicName;// Topic name trans
+        vehicle_interfaces::replace_all(tn, "/", "_");
 
-            rmw_qos_profile_t prof;
-            if (LoadRMWQoSFromJSON(this->qosDirPath_ / (tn + ".json"), prof))
-            {
-                outQoS = new rclcpp::QoS(rclcpp::QoSInitialization(prof.history, prof.depth), prof);
-                RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] Found QoS profile: depth: %d reliability: %d durability: %d", 
-                    prof.depth, prof.reliability, prof.durability);
-            }
-            else
-            {
-                outQoS = new rclcpp::QoS(10);
-                RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] QoS profile not found. Set to default.");
-            }
+        rmw_qos_profile_t prof;
+        if (LoadRMWQoSFromJSON(this->qosDirPath_ / (tn + ".json"), prof))
+        {
+            ret.second = new rclcpp::QoS(rclcpp::QoSInitialization(prof.history, prof.depth), prof);
+            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] Found QoS profile: depth: %d reliability: %d durability: %d", 
+                ret.second->depth(), ret.second->reliability(), ret.second->durability());
         }
-        
-        this->qosTopicNameVec_.push_back(topicName);
+        else
+        {
+            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] QoS profile not found. Set to default.");
+        }
+        return ret;
     }
 
     void addQoSCallbackFunc(const std::function<void(QoSMap)>& func)
