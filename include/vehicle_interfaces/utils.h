@@ -33,6 +33,19 @@ struct ReasonResult
     ReasonResult(const T& res, const std::string& reason) : result(res), reason(reason) {}
 };
 
+template<typename T>
+struct DescriptiveValue
+{
+    T value = 0;
+    std::string str = "";
+    DescriptiveValue() {}
+    DescriptiveValue(T value, std::string str) : value(value), str(str) {}
+    bool operator==(const DescriptiveValue& tp)
+    {
+        return this->value == tp.value && this->str == tp.str;
+    }
+};
+
 std::vector<std::string> split(const std::string& str, const std::string& delimiter)
 {
     std::vector<std::string> splitStrings;

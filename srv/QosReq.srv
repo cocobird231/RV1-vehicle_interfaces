@@ -4,6 +4,9 @@ string topic_name
 # Device type corresponds to vehicle_interfaces header DEVTYPE_XXX definitions (preserve)
 uint8 dev_type
 
+## Set to 'publisher', 'subscription' or 'both'
+string topic_type "both"
+
 ---
 # response is true if value accepted, otherwise server ignore the request and response false
 bool response

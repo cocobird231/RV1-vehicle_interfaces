@@ -69,7 +69,7 @@ vehicle_interfaces::msg::QosProfile CvtRMWQoSToMsg(const rmw_qos_profile_t& prof
 
 rmw_qos_profile_t CvtMsgToRMWQoS(const vehicle_interfaces::msg::QosProfile& msg)
 {
-    rmw_qos_profile_t prof;
+    rmw_qos_profile_t prof = rclcpp::QoS(10).get_rmw_qos_profile();
     prof.history = (rmw_qos_history_policy_e)msg.history;
     prof.depth = msg.depth;
     prof.reliability = (rmw_qos_reliability_policy_e)msg.reliability;
@@ -78,7 +78,26 @@ rmw_qos_profile_t CvtMsgToRMWQoS(const vehicle_interfaces::msg::QosProfile& msg)
     prof.lifespan = CvtMsgToRMWTime(msg.lifespan_ms);
     prof.liveliness = (rmw_qos_liveliness_policy_e)msg.liveliness;
     prof.liveliness_lease_duration = CvtMsgToRMWTime(msg.liveliness_lease_duration_ms);
+    // printf("history: %d\ndepth: %d\nreliability: %d\ndurability: %d\n \\
+    //         deadline:%d,%d\nlifespan: %d,%d\nliveliness: %d\nliveliness_lease_duration: %d,%d\n", 
+    //         prof.history, prof.depth, prof.reliability, prof.durability, 
+    //         prof.deadline.sec, prof.deadline.nsec, prof.lifespan.sec, prof.lifespan.nsec, 
+    //         prof.liveliness, prof.liveliness_lease_duration.sec, prof.liveliness_lease_duration.nsec);
     return prof;
+}
+
+// Only converts the depth, history, reliability and durability parameters. Rest of the parameters will set to default.
+rclcpp::QoS CvtRMWQoSToRclQoS(const rmw_qos_profile_t& prof)
+{
+    rclcpp::QoS ret(prof.depth);
+    ret.history(prof.history);
+    ret.reliability(prof.reliability);
+    ret.durability(prof.durability);
+    // ret.deadline(prof.deadline);
+    // ret.lifespan(prof.lifespan);
+    // ret.liveliness(prof.liveliness);
+    // ret.liveliness_lease_duration(prof.liveliness_lease_duration);
+    return ret;
 }
 
 std::string getQoSProfEnumName(rmw_qos_reliability_policy_e value)
@@ -148,6 +167,80 @@ bool LoadRMWQoSFromJSON(const fs::path& qosFilePath, rmw_qos_profile_t& profile)
     }
 }
 
+
+using TopicType = DescriptiveValue<uint8_t>;
+
+class TopicProp
+{
+public:
+    const static TopicType PUBLISHER;
+    const static TopicType SUBSCRIPTION;
+    const static TopicType BOTH;
+
+    const static DescriptiveValue<TopicType> PUBLISHER_PREFIX;
+    const static DescriptiveValue<TopicType> SUBSCRIPTION_PREFIX;
+    const static DescriptiveValue<TopicType> BOTH_PREFIX;
+
+    enum Exception {FULLNAME_RETRIEVE_ERROR};
+
+    std::string name;
+    std::string fullName;
+    TopicType type;
+
+private:
+    void _setProp()
+    {
+        if (this->type == TopicProp::PUBLISHER)
+            this->fullName = "#P!" + this->name;
+        else if (this->type == TopicProp::SUBSCRIPTION)
+            this->fullName = "#S!" + this->name;
+        else
+            this->fullName = "#B!" + this->name;
+    }
+public:
+    TopicProp(std::string topicName) : name(topicName), type(TopicProp::BOTH)
+    {
+        this->_setProp();
+    }
+
+    TopicProp(std::string topicName, TopicType topicType) : name(topicName), type(topicType)
+    {
+        this->_setProp();
+    }
+
+    TopicProp(std::string topicName, std::string topicType) : name(topicName)
+    {
+        if (topicType == "publisher" || topicType == "pub")
+            this->type = TopicProp::PUBLISHER;
+        else if (topicType == "subscription" || topicType == "sub")
+            this->type = TopicProp::SUBSCRIPTION;
+        else
+            this->type = TopicProp::BOTH;
+        this->_setProp();
+    }
+
+    static TopicProp retrieveTopicProp(std::string fullTopicName)
+    {
+        std::string prefix = fullTopicName.substr(0, 3);
+        if (prefix == TopicProp::PUBLISHER_PREFIX.str)
+            return {fullTopicName.substr(3), TopicProp::PUBLISHER};
+        else if (prefix == TopicProp::SUBSCRIPTION_PREFIX.str)
+            return {fullTopicName.substr(3), TopicProp::SUBSCRIPTION};
+        else if (prefix == TopicProp::BOTH_PREFIX.str)
+            return {fullTopicName.substr(3), TopicProp::BOTH};
+        else
+            throw TopicProp::Exception::FULLNAME_RETRIEVE_ERROR;
+    }
+};
+
+const TopicType TopicProp::PUBLISHER = {0, "publisher"};
+const TopicType TopicProp::SUBSCRIPTION = {1, "subscription"};
+const TopicType TopicProp::BOTH = {2, "both"};
+
+const DescriptiveValue<TopicType> TopicProp::PUBLISHER_PREFIX = {TopicProp::PUBLISHER, "#P!"};
+const DescriptiveValue<TopicType> TopicProp::SUBSCRIPTION_PREFIX = {TopicProp::SUBSCRIPTION, "#S!"};
+const DescriptiveValue<TopicType> TopicProp::BOTH_PREFIX = {TopicProp::BOTH, "#B!"};
+
 /* The QoSUpdateNode class implements the QoS update mechanisms, including a subscription of QoS update topic and a client for QoS update service.
  * The publish or subscription node can easily inherit the QoSUpdateNode, and adding callback function with addQoSCallbackFunc() to get callback 
  * while QoS policy updated. 
@@ -210,7 +303,7 @@ private:
         {
             try
             {
-                qmap[topic] = this->requestQoS(topic);
+                qmap[topic] = new rclcpp::QoS(std::move(this->requestQoS(topic)));
             }
             catch(...)
             {
@@ -298,7 +391,7 @@ public:
         rmw_qos_profile_t prof;
         if (LoadRMWQoSFromJSON(this->qosDirPath_ / (tn + ".json"), prof))
         {
-            ret.second = new rclcpp::QoS(rclcpp::QoSInitialization(prof.history, prof.depth), prof);
+            ret.second = new rclcpp::QoS(CvtRMWQoSToRclQoS(prof));
             RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] Found QoS profile: depth: %d reliability: %d durability: %d", 
                 ret.second->depth(), ret.second->reliability(), ret.second->durability());
         }
@@ -319,7 +412,7 @@ public:
         this->callbackF_ = true;
     }
 
-    rclcpp::QoS* requestQoS(std::string topicName)
+    rclcpp::QoS requestQoS(std::string topicName)
     {
         if (!this->nodeEnableF_)
             throw "Request QoS Failed";// Request QoS failed
@@ -340,7 +433,7 @@ public:
             {
                 rmw_qos_profile_t prof = CvtMsgToRMWQoS(res->qos_profile);
                 RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Profile get: %s, %d", getQoSProfEnumName(prof.reliability).c_str(), prof.depth);
-                return new rclcpp::QoS(rclcpp::QoSInitialization(prof.history, prof.depth), prof);
+                return CvtRMWQoSToRclQoS(prof);
             }
         }
         RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::requestQoS] Request %s QoS profile failed.", topicName.c_str());
@@ -432,6 +525,15 @@ private:
     void _regServiceCallback(const std::shared_ptr<vehicle_interfaces::srv::QosReg::Request> request, 
                             std::shared_ptr<vehicle_interfaces::srv::QosReg::Response> response)
     {
+        if (request->topic_name == "" && !request->save_qmap && !request->clear_profiles)
+        {
+            response->response = false;
+            response->qid = this->qid_.load();
+            return;
+        }
+
+        auto tp = TopicProp(request->topic_name, request->topic_type);
+
         if (request->save_qmap)
         {
             RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] Save qmap request");
@@ -444,15 +546,15 @@ private:
         }
         else if (request->remove_profile)
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: remove %s [%d]", 
-                request->topic_name.c_str(), request->dev_type);
-            this->removeTmpQoSProfile(request->topic_name);
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: remove %s [%s]", 
+                tp.name.c_str(), tp.type.str.c_str());
+            this->removeTmpQoSProfile(tp.fullName);
         }
         else
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: set %s [%d]", 
-                request->topic_name.c_str(), request->dev_type);
-            this->setTmpQoSProfile(request->topic_name, CvtMsgToRMWQoS(request->qos_profile));
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: set %s [%s]", 
+                tp.fullName.c_str(), tp.type.str.c_str());
+            this->setTmpQoSProfile(tp.fullName, CvtMsgToRMWQoS(request->qos_profile));
         }
         response->response = true;
         response->qid = this->qid_.load();
@@ -462,7 +564,16 @@ private:
     void _reqServiceCallback(const std::shared_ptr<vehicle_interfaces::srv::QosReq::Request> request, 
                             std::shared_ptr<vehicle_interfaces::srv::QosReq::Response> response)
     {
-        RCLCPP_INFO(this->get_logger(), "[QoSServer::_reqServiceCallback] request: %s [%d]", request->topic_name.c_str(), request->dev_type);
+        if (request->topic_name == "")
+        {
+            response->response = false;
+            response->qid = this->qid_.load();
+            return;
+        }
+
+        auto tp = TopicProp(request->topic_name, request->topic_type);
+
+        RCLCPP_INFO(this->get_logger(), "[QoSServer::_reqServiceCallback] request: %s [%s]", tp.name.c_str(), tp.type.str.c_str());
 
         // Prepare qmap lock
         std::unique_lock<std::mutex> locker(this->qmapLock_, std::defer_lock);
@@ -471,26 +582,35 @@ private:
         auto qmapTmp = this->qmap_;
         locker.unlock();
 
+REQ_CHECK_TOPIC_NAME:
         // Check topic name
-        if (qmapTmp.find(request->topic_name) == qmapTmp.end())
+        if (qmapTmp.find(tp.fullName) == qmapTmp.end())
         {
-            // Topic name not listed in qmap
-            rclcpp::QoS* ret = new rclcpp::QoS(10);
-            response->qos_profile = CvtRMWQoSToMsg(ret->get_rmw_qos_profile());
-            response->response = false;
-            response->qid = this->qid_.load();
+            if (tp.type == TopicProp::BOTH)
+            {
+                // Topic name not listed in qmap
+                rclcpp::QoS* ret = new rclcpp::QoS(10);
+                response->qos_profile = CvtRMWQoSToMsg(ret->get_rmw_qos_profile());
+                response->response = false;
+                response->qid = this->qid_.load();
+            }
+            else// topic_type = "publisher" or "subscription" not found. Use "both" then search again.
+            {
+                tp = TopicProp(request->topic_name, TopicProp::BOTH);
+                goto REQ_CHECK_TOPIC_NAME;
+            }
         }
         else
         {
             // Found topic name
-            response->qos_profile = CvtRMWQoSToMsg(qmapTmp[request->topic_name]);
+            response->qos_profile = CvtRMWQoSToMsg(qmapTmp[tp.fullName]);
             response->response = true;
             response->qid = this->qid_.load();
         }
 
         // Logger
-        RCLCPP_INFO(this->get_logger(), "[QoSServer::_reqServiceCallback] response: qid: %04d %s (found: %s)", 
-            response->qid, request->topic_name.c_str(), response->response ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "[QoSServer::_reqServiceCallback] response: qid: %04d %s [%s] (found: %s)", 
+            response->qid, tp.name.c_str(), tp.type.str.c_str(), response->response ? "true" : "false");
     }
 
     // Publish QoS update signal
@@ -523,11 +643,14 @@ private:
     }
 
     // Return indicator map describes which topic_name profile should be updated
-    std::vector<std::string> _qmapUpdateCheck()
+    // Add: check size between qmap and qmapTmp to preserve changes for profile removal
+    std::pair<std::vector<std::string>, bool> _qmapUpdateCheck()
     {
         std::lock_guard<std::mutex> locker(this->qmapLock_);
 
-        std::vector<std::string> updateVec;
+
+        std::pair<std::vector<std::string>, bool> updateVec;// Need to be trans to non-fullname
+        updateVec.second = this->qmap_.size() != this->qmapTmp_.size();// True if different sizes
         for (auto& [k, v] : this->qmapTmp_)
         {
             try
@@ -541,13 +664,15 @@ private:
                             v.liveliness == this->qmap_[k].liveliness && 
                             0 == CompRMWTime(v.liveliness_lease_duration, this->qmap_[k].liveliness_lease_duration);
                 if (!compF)
-                    updateVec.push_back(k);
+                    updateVec.first.push_back(TopicProp::retrieveTopicProp(k).name);
             }
             catch (...)
             {
-                updateVec.push_back(k);
+                updateVec.first.push_back(TopicProp::retrieveTopicProp(k).name);
             }
         }
+        updateVec.second |= updateVec.first.size() > 0;
+
         return updateVec;
     }
 
@@ -617,8 +742,8 @@ public:
 
     void setQmap()
     {
-        auto updateVec = this->_qmapUpdateCheck();
-        if (updateVec.size() > 0)
+        auto [updateVec, updateF] = this->_qmapUpdateCheck();
+        if (updateF)
         {
             std::unique_lock<std::mutex> locker(this->qmapLock_, std::defer_lock);
             locker.lock();
