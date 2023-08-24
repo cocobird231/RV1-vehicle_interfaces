@@ -23,6 +23,10 @@
 #include <fstream>
 #include "nlohmann/json.hpp"
 
+#ifndef ROS_DISTRO// 0: eloquent, 1: foxy, 2: humble
+#define ROS_DISTRO 2
+#endif
+
 using namespace std::chrono_literals;
 using namespace std::placeholders;
 
@@ -32,6 +36,28 @@ namespace vehicle_interfaces
 typedef std::map<std::string, rclcpp::QoS*> QoSMap;
 typedef std::pair<std::string, rclcpp::QoS*> QoSPair;
 
+#if ROS_DISTRO < 2// Foxy and older
+// double ms to rmw_time_t
+inline rmw_time_t CvtMsgToRMWTime(const double& time_ms)
+{
+    return { time_ms / 1000, (time_ms - (uint64_t)time_ms) * 1000000 };
+}
+
+// rmw_time_t to double ms
+inline double CvtRMWTimeToMsg(const rmw_time_t& rmwT)
+{
+    return rmwT.sec * 1000 + rmwT.nsec / 1000000.0;
+}
+
+// Return 1 if rmwT1 > rmwT2; -1 if rmwT1 < rmwT2; 0 if rmwT1 = rmwT2
+inline int CompRMWTime(const rmw_time_t& rmwT1, const rmw_time_t& rmwT2)
+{
+    uint64_t t1 = static_cast<uint64_t>(rmwT1.sec * 1000000000) + rmwT1.nsec;
+    uint64_t t2 = static_cast<uint64_t>(rmwT2.sec * 1000000000) + rmwT2.nsec;
+    uint64_t ret = t1 - t2;
+    return ret > 0 ? 1 : (ret < 0 ? -1 : 0);
+}
+#else// Humble and newer
 // double ms to rmw_time_s
 inline rmw_time_s CvtMsgToRMWTime(const double& time_ms)
 {
@@ -52,6 +78,9 @@ inline int CompRMWTime(const rmw_time_s& rmwT1, const rmw_time_s& rmwT2)
     uint64_t ret = t1 - t2;
     return ret > 0 ? 1 : (ret < 0 ? -1 : 0);
 }
+#endif
+
+
 
 vehicle_interfaces::msg::QosProfile CvtRMWQoSToMsg(const rmw_qos_profile_t& prof)
 {
@@ -67,16 +96,39 @@ vehicle_interfaces::msg::QosProfile CvtRMWQoSToMsg(const rmw_qos_profile_t& prof
     return ret;
 }
 
+#if ROS_DISTRO < 2// Foxy and older
+std::string getQoSProfEnumName(rmw_qos_reliability_policy_t value)
+{
+    switch (value)
+    {
+        case rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT:
+            return "BEST_EFFORT";
+            break;
+        case rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_RELIABLE:
+            return "RELIABLE";
+            break;
+        case rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_SYSTEM_DEFAULT:
+            return "SYSTEM_DEFAULT";
+            break;
+        case rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_UNKNOWN:
+            return "UNKNOWN";
+            break;
+        default:
+            return "UNKNOWN";
+            break;
+    }
+}
+
 rmw_qos_profile_t CvtMsgToRMWQoS(const vehicle_interfaces::msg::QosProfile& msg)
 {
     rmw_qos_profile_t prof = rclcpp::QoS(10).get_rmw_qos_profile();
-    prof.history = (rmw_qos_history_policy_e)msg.history;
+    prof.history = (rmw_qos_history_policy_t)msg.history;
     prof.depth = msg.depth;
-    prof.reliability = (rmw_qos_reliability_policy_e)msg.reliability;
-    prof.durability = (rmw_qos_durability_policy_e)msg.durability;
+    prof.reliability = (rmw_qos_reliability_policy_t)msg.reliability;
+    prof.durability = (rmw_qos_durability_policy_t)msg.durability;
     prof.deadline = CvtMsgToRMWTime(msg.deadline_ms);
     prof.lifespan = CvtMsgToRMWTime(msg.lifespan_ms);
-    prof.liveliness = (rmw_qos_liveliness_policy_e)msg.liveliness;
+    prof.liveliness = (rmw_qos_liveliness_policy_t)msg.liveliness;
     prof.liveliness_lease_duration = CvtMsgToRMWTime(msg.liveliness_lease_duration_ms);
     // printf("history: %d\ndepth: %d\nreliability: %d\ndurability: %d\n \\
     //         deadline:%d,%d\nlifespan: %d,%d\nliveliness: %d\nliveliness_lease_duration: %d,%d\n", 
@@ -86,20 +138,29 @@ rmw_qos_profile_t CvtMsgToRMWQoS(const vehicle_interfaces::msg::QosProfile& msg)
     return prof;
 }
 
-// Only converts the depth, history, reliability and durability parameters. Rest of the parameters will set to default.
-rclcpp::QoS CvtRMWQoSToRclQoS(const rmw_qos_profile_t& prof)
+bool LoadRMWQoSFromJSON(const fs::path& qosFilePath, rmw_qos_profile_t& profile)
 {
-    rclcpp::QoS ret(prof.depth);
-    ret.history(prof.history);
-    ret.reliability(prof.reliability);
-    ret.durability(prof.durability);
-    // ret.deadline(prof.deadline);
-    // ret.lifespan(prof.lifespan);
-    // ret.liveliness(prof.liveliness);
-    // ret.liveliness_lease_duration(prof.liveliness_lease_duration);
-    return ret;
+    try
+    {
+        nlohmann::json json;
+        json.update(nlohmann::json::parse(std::ifstream(qosFilePath)));
+        profile.history = (rmw_qos_history_policy_t)json["history"];
+        profile.depth = json["depth"];
+        profile.reliability = (rmw_qos_reliability_policy_t)json["reliability"];
+        profile.durability = (rmw_qos_durability_policy_t)json["durability"];
+        profile.deadline = CvtMsgToRMWTime(json["deadline_ms"]);
+        profile.lifespan = CvtMsgToRMWTime(json["lifespan_ms"]);
+        profile.liveliness = (rmw_qos_liveliness_policy_t)json["liveliness"];
+        profile.liveliness_lease_duration = CvtMsgToRMWTime(json["liveliness_lease_duration_ms"]);
+        return true;
+    }
+    catch(...)
+    {
+        return false;
+    }
 }
 
+#else// Humble and newer
 std::string getQoSProfEnumName(rmw_qos_reliability_policy_e value)
 {
     switch (value)
@@ -121,6 +182,66 @@ std::string getQoSProfEnumName(rmw_qos_reliability_policy_e value)
             break;
     }
 }
+
+rmw_qos_profile_t CvtMsgToRMWQoS(const vehicle_interfaces::msg::QosProfile& msg)
+{
+    rmw_qos_profile_t prof = rclcpp::QoS(10).get_rmw_qos_profile();
+    prof.history = (rmw_qos_history_policy_e)msg.history;
+    prof.depth = msg.depth;
+    prof.reliability = (rmw_qos_reliability_policy_e)msg.reliability;
+    prof.durability = (rmw_qos_durability_policy_e)msg.durability;
+    prof.deadline = CvtMsgToRMWTime(msg.deadline_ms);
+    prof.lifespan = CvtMsgToRMWTime(msg.lifespan_ms);
+    prof.liveliness = (rmw_qos_liveliness_policy_e)msg.liveliness;
+    prof.liveliness_lease_duration = CvtMsgToRMWTime(msg.liveliness_lease_duration_ms);
+    // printf("history: %d\ndepth: %d\nreliability: %d\ndurability: %d\n \\
+    //         deadline:%d,%d\nlifespan: %d,%d\nliveliness: %d\nliveliness_lease_duration: %d,%d\n", 
+    //         prof.history, prof.depth, prof.reliability, prof.durability, 
+    //         prof.deadline.sec, prof.deadline.nsec, prof.lifespan.sec, prof.lifespan.nsec, 
+    //         prof.liveliness, prof.liveliness_lease_duration.sec, prof.liveliness_lease_duration.nsec);
+    return prof;
+}
+
+bool LoadRMWQoSFromJSON(const fs::path& qosFilePath, rmw_qos_profile_t& profile)
+{
+    try
+    {
+        nlohmann::json json;
+        json.update(nlohmann::json::parse(std::ifstream(qosFilePath)));
+        profile.history = (rmw_qos_history_policy_e)json["history"];
+        profile.depth = json["depth"];
+        profile.reliability = (rmw_qos_reliability_policy_e)json["reliability"];
+        profile.durability = (rmw_qos_durability_policy_e)json["durability"];
+        profile.deadline = CvtMsgToRMWTime(json["deadline_ms"]);
+        profile.lifespan = CvtMsgToRMWTime(json["lifespan_ms"]);
+        profile.liveliness = (rmw_qos_liveliness_policy_e)json["liveliness"];
+        profile.liveliness_lease_duration = CvtMsgToRMWTime(json["liveliness_lease_duration_ms"]);
+        return true;
+    }
+    catch(...)
+    {
+        return false;
+    }
+}
+#endif
+
+
+
+// Only converts the depth, history, reliability and durability parameters. Rest of the parameters will set to default.
+rclcpp::QoS CvtRMWQoSToRclQoS(const rmw_qos_profile_t& prof)
+{
+    rclcpp::QoS ret(prof.depth);
+    ret.history(prof.history);
+    ret.reliability(prof.reliability);
+    ret.durability(prof.durability);
+    // ret.deadline(prof.deadline);
+    // ret.lifespan(prof.lifespan);
+    // ret.liveliness(prof.liveliness);
+    // ret.liveliness_lease_duration(prof.liveliness_lease_duration);
+    return ret;
+}
+
+
 
 bool DumpRMWQoSToJSON(const fs::path& qosFilePath, const rmw_qos_profile_t& profile)
 {
@@ -145,27 +266,7 @@ bool DumpRMWQoSToJSON(const fs::path& qosFilePath, const rmw_qos_profile_t& prof
     }
 }
 
-bool LoadRMWQoSFromJSON(const fs::path& qosFilePath, rmw_qos_profile_t& profile)
-{
-    try
-    {
-        nlohmann::json json;
-        json.update(nlohmann::json::parse(std::ifstream(qosFilePath)));
-        profile.history = (rmw_qos_history_policy_e)json["history"];
-        profile.depth = json["depth"];
-        profile.reliability = (rmw_qos_reliability_policy_e)json["reliability"];
-        profile.durability = (rmw_qos_durability_policy_e)json["durability"];
-        profile.deadline = CvtMsgToRMWTime(json["deadline_ms"]);
-        profile.lifespan = CvtMsgToRMWTime(json["lifespan_ms"]);
-        profile.liveliness = (rmw_qos_liveliness_policy_e)json["liveliness"];
-        profile.liveliness_lease_duration = CvtMsgToRMWTime(json["liveliness_lease_duration_ms"]);
-        return true;
-    }
-    catch(...)
-    {
-        return false;
-    }
-}
+
 
 
 using TopicType = DescriptiveValue<uint8_t>;
@@ -393,7 +494,7 @@ public:
         {
             ret.second = new rclcpp::QoS(CvtRMWQoSToRclQoS(prof));
             RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] Found QoS profile: depth: %d reliability: %d durability: %d", 
-                ret.second->depth(), ret.second->reliability(), ret.second->durability());
+                ret.second->get_rmw_qos_profile().depth, ret.second->get_rmw_qos_profile().reliability, ret.second->get_rmw_qos_profile().durability);
         }
         else
         {
