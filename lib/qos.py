@@ -33,7 +33,6 @@ def DumpRMWQoSToJSON(qosFilePath : str , profile : QoSProfile) -> bool:
         d["liveliness"] = int(profile.liveliness)
         d["liveliness_lease_duration_ms"] = CvtRMWTimeToMsg(profile.liveliness_lease_duration)
         jFile = json.dumps(d)
-        print('File:', jFile)
         with open(qosFilePath, 'w') as f:
             f.write(jFile)
         return True
@@ -68,7 +67,7 @@ class QoSUpdateNode(NodeAdaptor):
         self.__nodeEnableF = False
         if (qosServiceName == ''):
             return
-        
+
         # Create directory
         try:
             os.makedirs(qosDirPath)
@@ -86,7 +85,7 @@ class QoSUpdateNode(NodeAdaptor):
         self.__callbackF = False
 
         self.__qosDirPath = qosDirPath
-        
+
         self.__nodeEnableF = True
 
     def __topic_callback(self, msg):
@@ -158,7 +157,7 @@ class QoSUpdateNode(NodeAdaptor):
                 %(prof.depth, prof.reliability, prof.durability))
         else:
             self.get_logger().info('[QoSUpdateNode::addQoSTracking] QoS profile not found. Set to default.')
-            prof = QoSProfile(history=0)
+            prof = QoSProfile(depth=10)
 
         self.__qosTopicNameVec.append(topicName)
         self.__qosID = 0
@@ -187,15 +186,14 @@ class QoSUpdateNode(NodeAdaptor):
         self.get_logger().info('[QoSUpdateNode.requestQoS] Response: %d' %response.response)
         if (response.response):
             msg = response.qos_profile
-            prof = QoSProfile(history=msg.history)
+            prof = QoSProfile(depth=msg.depth)
             prof.history = msg.history
-            prof.depth = msg.depth
             prof.reliability = msg.reliability
             prof.durability = msg.durability
-            prof.deadline = self.__splitTime(msg.deadline_ms)
-            prof.lifespan = self.__splitTime(msg.lifespan_ms)
-            prof.liveliness = msg.liveliness
-            prof.liveliness_lease_duration = self.__splitTime(msg.liveliness_lease_duration_ms)
+            # prof.deadline = self.__splitTime(msg.deadline_ms)
+            # prof.lifespan = self.__splitTime(msg.lifespan_ms)
+            # prof.liveliness = msg.liveliness
+            # prof.liveliness_lease_duration = self.__splitTime(msg.liveliness_lease_duration_ms)
 
             # self.__qosID = response.qid;
             return prof
