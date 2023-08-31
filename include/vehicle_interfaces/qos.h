@@ -14,7 +14,6 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "vehicle_interfaces/utils.h"
-#include "vehicle_interfaces/timesync.h"
 #include "vehicle_interfaces/msg/qos_profile.hpp"
 #include "vehicle_interfaces/msg/qos_update.hpp"
 #include "vehicle_interfaces/srv/qos_reg.hpp"
