@@ -36,40 +36,6 @@ private:
     // Node enable
     std::atomic<bool> nodeEnableF_;
 
-private:
-	template <typename T>
-	void _safeSave(T* ptr, const T value, std::mutex& lock)
-	{
-		std::lock_guard<std::mutex> _lock(lock);
-		*ptr = value;
-	}
-
-	template <typename T>
-	T _safeCall(const T* ptr, std::mutex& lock)
-	{
-		std::lock_guard<std::mutex> _lock(lock);
-		return *ptr;
-	}
-
-
-    void _connToService(rclcpp::ClientBase::SharedPtr client)
-    {
-        int errCnt = 5;
-        while (!client->wait_for_service(1s) && errCnt-- > 0)
-        {
-            if (!rclcpp::ok())
-            {
-                RCLCPP_ERROR(this->get_logger(), "[SafetyNode::_connToService] Interrupted while waiting for the service. Exiting.");
-                return;
-            }
-            RCLCPP_INFO(this->get_logger(), "[SafetyNode::_connToService] Service not available, waiting again...");
-        }
-        if (errCnt < 0)
-            RCLCPP_ERROR(this->get_logger(), "[SafetyNode::_connToService] Connect to service failed.");
-        else
-            RCLCPP_INFO(this->get_logger(), "[SafetyNode::_connToService] Service connected.");
-    }
-
 public:
     SafetyNode(const std::string& nodeName, const std::string& safetyServiceName) : rclcpp::Node(nodeName), 
         nodeEnableF_(false)
@@ -78,15 +44,10 @@ public:
             return;
         this->regClientNode_ = rclcpp::Node::make_shared(nodeName + "_safetyreg_client");
         this->regClient_ = this->regClientNode_->create_client<vehicle_interfaces::srv::SafetyReg>(safetyServiceName + "_Reg");
-        printf("[SafetyNode] Connecting to safetyreg server: %s\n", safetyServiceName.c_str());
-        this->_connToService(this->regClient_);
 
         this->reqClientNode_ = rclcpp::Node::make_shared(nodeName + "_safetyreq_client");
         this->reqClient_ = this->reqClientNode_->create_client<vehicle_interfaces::srv::SafetyReq>(safetyServiceName + "_Req");
-        printf("[SafetyNode] Connecting to safetyreq server: %s\n", safetyServiceName.c_str());
-        this->_connToService(this->reqClient_);
 
-        std::this_thread::sleep_for(200ms);
         this->nodeEnableF_ = true;
     }
 
@@ -176,7 +137,7 @@ private:
         bool resF = false;
         try
         {
-            RCLCPP_INFO(this->get_logger(), "request device: [%s][%f]", request->device_id.c_str(), request->emergency_percentage);
+            RCLCPP_INFO(this->get_logger(), "[SafetyServer::_regServerCallback] Request device: [%s][%f].", request->device_id.c_str(), request->emergency_percentage);
             deviceEmergencyMapLocker.lock();
             this->deviceEmergencyMap_[request->device_id] = request->emergency_percentage;
             deviceEmergencyMapLocker.unlock();
@@ -225,7 +186,7 @@ private:
         }
         catch (const std::string& e)
         {
-            RCLCPP_INFO(this->get_logger(), "%s: %s", e.c_str(), request->device_id.c_str());
+            RCLCPP_INFO(this->get_logger(), "[SafetyServer::_reqServerCallback] %s: %s", e.c_str(), request->device_id.c_str());
         }
         catch (const std::exception& e)
         {
@@ -245,11 +206,11 @@ public:
     {
         this->regServer_ = this->create_service<vehicle_interfaces::srv::SafetyReg>(serviceName + "_Reg", 
             std::bind(&SafetyServer::_regServerCallback, this, std::placeholders::_1, std::placeholders::_2));
-        RCLCPP_INFO(this->get_logger(), "[SafetyRegServer] Constructed");
+        RCLCPP_INFO(this->get_logger(), "[SafetyRegServer] Constructed.");
 
         this->reqServer_ = this->create_service<vehicle_interfaces::srv::SafetyReq>(serviceName + "_Req", 
             std::bind(&SafetyServer::_reqServerCallback, this, std::placeholders::_1, std::placeholders::_2));
-        RCLCPP_INFO(this->get_logger(), "[SafetyReqServer] Constructed");
+        RCLCPP_INFO(this->get_logger(), "[SafetyReqServer] Constructed.");
     }
 };
 

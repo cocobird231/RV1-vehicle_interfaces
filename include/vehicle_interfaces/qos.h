@@ -379,7 +379,7 @@ private:
         if (msg->qid == this->qosID_)// Ignore update in same qos ID
             return;
 
-        RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] qid: %d", msg->qid);
+        // RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] qid: %d.", msg->qid);
         
         std::vector<std::string> topicVec;
 
@@ -407,7 +407,7 @@ private:
             }
             catch(...)
             {
-                RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::requestQoS] Request error: %s", topic.c_str());
+                RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::requestQoS] Request error: %s.", topic.c_str());
             }
         }
         
@@ -422,7 +422,7 @@ private:
                     std::string tn = k;
                     vehicle_interfaces::replace_all(tn, "/", "_");
                     DumpRMWQoSToJSON(this->qosDirPath_ / (tn + ".json"), v->get_rmw_qos_profile());
-                    RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] Dump QoS profile: %s", 
+                    RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] Dump QoS profile: %s.", 
                         (this->qosDirPath_ / (tn + ".json")).generic_string().c_str());
                 }
             }
@@ -454,7 +454,7 @@ public:
         this->subscription_ = this->create_subscription<vehicle_interfaces::msg::QosUpdate>(qosServiceName, 
             10, std::bind(&QoSUpdateNode::_topic_callback, this, std::placeholders::_1));
         this->nodeEnableF_ = true;
-        RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode] Constructed.");
+        // RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode] Constructed.");
     }
 
     QoSPair addQoSTracking(std::string topicName)
@@ -492,12 +492,12 @@ public:
         if (LoadRMWQoSFromJSON(this->qosDirPath_ / (tn + ".json"), prof))
         {
             ret.second = new rclcpp::QoS(CvtRMWQoSToRclQoS(prof));
-            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] Found QoS profile: depth: %d reliability: %d durability: %d", 
-                ret.second->get_rmw_qos_profile().depth, ret.second->get_rmw_qos_profile().reliability, ret.second->get_rmw_qos_profile().durability);
+            // RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] Found QoS profile: depth: %d reliability: %d durability: %d.", 
+            //     ret.second->get_rmw_qos_profile().depth, ret.second->get_rmw_qos_profile().reliability, ret.second->get_rmw_qos_profile().durability);
         }
         else
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] QoS profile not found. Set to default.");
+            // RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::addQoSTracking] QoS profile not found. Set to default.");
         }
         return ret;
     }
@@ -516,7 +516,7 @@ public:
     {
         if (!this->nodeEnableF_)
             throw "Request QoS Failed";// Request QoS failed
-        RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Request %s QoS profile...", topicName.c_str());
+        // RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Request %s QoS profile...", topicName.c_str());
 
         auto request = std::make_shared<vehicle_interfaces::srv::QosReq::Request>();
         request->topic_name = topicName;
@@ -528,15 +528,15 @@ public:
 #endif
         {
             auto res = result.get();
-            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Response: %d, qid: %ld", res->response, res->qid);
+            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Response: %d, qid: %ld.", res->response, res->qid);
             if (res->response)
             {
                 rmw_qos_profile_t prof = CvtMsgToRMWQoS(res->qos_profile);
-                RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Profile get: %s, %d", getQoSProfEnumName(prof.reliability).c_str(), prof.depth);
+                // RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Profile get: %s, %d.", getQoSProfEnumName(prof.reliability).c_str(), prof.depth);
                 return CvtRMWQoSToRclQoS(prof);
             }
         }
-        RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::requestQoS] Request %s QoS profile failed.", topicName.c_str());
+        // RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::requestQoS] Request %s QoS profile failed.", topicName.c_str());
         throw "Request QoS Failed";// Request QoS failed
     }
 
@@ -582,7 +582,7 @@ private:
 
     rcl_interfaces::msg::SetParametersResult _paramsCallback(const std::vector<rclcpp::Parameter>& params)
     {
-        RCLCPP_INFO(this->get_logger(), "[QoSServer::_paramsCallback]");
+        // RCLCPP_INFO(this->get_logger(), "[QoSServer::_paramsCallback]");
         std::unique_lock<std::mutex> locker(this->paramsLock_, std::defer_lock);
 
         rcl_interfaces::msg::SetParametersResult res;
@@ -636,23 +636,23 @@ private:
 
         if (request->save_qmap)
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] Save qmap request");
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] Save qmap request.");
             this->setQmap();
         }
         else if (request->clear_profiles)
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] Clear tmp qmap");
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] Clear tmp qmap.");
             this->clearTmpQoSProfile();
         }
         else if (request->remove_profile)
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: remove %s [%s]", 
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: remove %s [%s].", 
                 tp.name.c_str(), tp.type.str.c_str());
             this->removeTmpQoSProfile(tp.fullName);
         }
         else
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: set %s [%s]", 
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: set %s [%s].", 
                 tp.fullName.c_str(), tp.type.str.c_str());
             this->setTmpQoSProfile(tp.fullName, CvtMsgToRMWQoS(request->qos_profile));
         }
@@ -673,7 +673,7 @@ private:
 
         auto tp = TopicProp(request->topic_name, request->topic_type);
 
-        RCLCPP_INFO(this->get_logger(), "[QoSServer::_reqServiceCallback] request: %s [%s]", tp.name.c_str(), tp.type.str.c_str());
+        RCLCPP_INFO(this->get_logger(), "[QoSServer::_reqServiceCallback] Request: %s [%s].", tp.name.c_str(), tp.type.str.c_str());
 
         // Prepare qmap lock
         std::unique_lock<std::mutex> locker(this->qmapLock_, std::defer_lock);
@@ -709,7 +709,7 @@ REQ_CHECK_TOPIC_NAME:
         }
 
         // Logger
-        RCLCPP_INFO(this->get_logger(), "[QoSServer::_reqServiceCallback] response: qid: %04d %s [%s] (found: %s)", 
+        RCLCPP_INFO(this->get_logger(), "[QoSServer::_reqServiceCallback] Response: qid: %04d %s [%s] (found: %s).", 
             response->qid, tp.name.c_str(), tp.type.str.c_str(), response->response ? "true" : "false");
     }
 
@@ -803,11 +803,11 @@ public:
         if (this->pubTimer_ != nullptr)
         {
             this->pubTimer_->start();
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::startPublish] Start publish timer");
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::startPublish] Start publish timer.");
             return true;
         }
-        RCLCPP_INFO(this->get_logger(), "[QoSServer::startPublish] Publish timer not set");
-        return {false, "[QoSServer::startPublish] Publish timer not set"};
+        RCLCPP_INFO(this->get_logger(), "[QoSServer::startPublish] Publish timer not set.");
+        return {false, "[QoSServer::startPublish] Publish timer not set."};
     }
 
     ReasonResult<bool> stopPublish()
@@ -815,11 +815,11 @@ public:
         if (this->pubTimer_ != nullptr)
         {
             this->pubTimer_->stop();
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::stopPublish] Publish timer stopped");
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::stopPublish] Publish timer stopped.");
             return true;
         }
-        RCLCPP_INFO(this->get_logger(), "[QoSServer::stopPublish] Publish timer not set");
-        return {false, "[QoSServer::startPublish] Publish timer not set"};
+        RCLCPP_INFO(this->get_logger(), "[QoSServer::stopPublish] Publish timer not set.");
+        return {false, "[QoSServer::stopPublish] Publish timer not set."};
     }
 
     void setTmpQoSProfile(const std::string& topicName, const rmw_qos_profile_t& prof)

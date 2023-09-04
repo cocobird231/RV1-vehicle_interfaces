@@ -66,41 +66,23 @@ private:
         return *ptr;
     }
 
-    void _connToService(rclcpp::ClientBase::SharedPtr client)
+    void _timerCallback()
     {
-        int errCnt = 5;
-        while (!client->wait_for_service(1s) && errCnt-- > 0)
-        {
-            if (!rclcpp::ok())
-            {
-                RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_connToService] Interrupted while waiting for the service. Exiting.");
-                return;
-            }
-            RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_connToService] Service not available, waiting again...");
-        }
-        if (errCnt < 0)
-            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_connToService] Connect to service failed.");
-        else
-            RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_connToService] Service connected.");
-    }
-
-    void timeSyncTimer_callback_()
-    {
-        std::cout << "timeSyncTimer_callback_" << std::endl;
         auto st = std::chrono::high_resolution_clock::now();
         try
         {
             while (!this->syncTime() && (std::chrono::high_resolution_clock::now() - st < this->retryDur_))
                 std::this_thread::sleep_for(500ms);
             if (!this->isSyncF_)
-                printf("[TimeSyncNode::timeSyncTimer_callback_] Time sync failed.\n");
+                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_timerCallback] Time sync failed.");
             else
-                printf("[TimeSyncNode::timeSyncTimer_callback_] Time synced.\n");
-            printf("[TimeSyncNode::timeSyncTimer_callback_] Correct duration: %f us\n", this->_safeCall(this->correctDuration_, this->correctDurationLock_).nanoseconds() / 1000.0);
+                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_timerCallback] Time synced.");
+            RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_timerCallback] Correct duration: %f us.", 
+                        this->_safeCall(this->correctDuration_, this->correctDurationLock_).nanoseconds() / 1000.0);
         }
         catch (const std::exception& e)
         {
-            std::cerr << "[TimeSyncNode::timeSyncTimer_callback_] Unexpected Error" << e.what() << std::endl;
+            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_timerCallback] Unexpected Error: %s", e.what());
         }
     }
 
@@ -124,14 +106,13 @@ public:
         this->timeSyncAccuracy_ = std::chrono::duration<double, std::nano>(syncAccuracy_ms * 1000000.0);
 
         this->retryDur_ = std::chrono::duration<double, std::milli>(5000.0);// First wait 5sec at most
-        // this->_connToService(this->client_);
         this->nodeEnableF_ = true;
 
-        this->timeSyncTimer_callback_();
-        this->retryDur_ = this->timeSyncTimerInterval_ * 0.5;
+        this->_timerCallback();
+        this->retryDur_ = this->timeSyncTimerInterval_ * 0.1 > std::chrono::seconds(10) ? std::chrono::seconds(10) : this->timeSyncTimerInterval_ * 0.1;
         if (syncInterval_ms > 0)
         {
-            this->timeSyncTimer_ = new Timer(syncInterval_ms, std::bind(&TimeSyncNode::timeSyncTimer_callback_, this));
+            this->timeSyncTimer_ = new Timer(syncInterval_ms, std::bind(&TimeSyncNode::_timerCallback, this));
             this->timeSyncTimer_->start();
         }
     }
@@ -168,23 +149,23 @@ public:
                 
                 this->_safeSave(this->correctDuration_, this->refTime_ - this->initTime_, this->correctDurationLock_);
                 
-                RCLCPP_INFO(this->clientNode_->get_logger(), "Response: %d", this->timeStampType_.load());
-                RCLCPP_INFO(this->clientNode_->get_logger(), "Local time: %f s", this->initTime_.seconds());
-                RCLCPP_INFO(this->clientNode_->get_logger(), "Reference time: %f s", this->refTime_.seconds());
-                RCLCPP_INFO(this->clientNode_->get_logger(), "Transport time: %f ms", (nowTime - this->initTime_).nanoseconds() / 1000000.0);
-                RCLCPP_INFO(this->clientNode_->get_logger(), "Correct duration: %f us", this->correctDuration_->nanoseconds() / 1000.0);
+                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Response: %d.", this->timeStampType_.load());
+                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Local time: %f s.", this->initTime_.seconds());
+                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Reference time: %f s.", this->refTime_.seconds());
+                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Transport time: %f ms.", (nowTime - this->initTime_).nanoseconds() / 1000000.0);
+                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Correct duration: %f us.", this->correctDuration_->nanoseconds() / 1000.0);
                 this->isSyncF_ = true;
                 return true;
             }
             else
             {
-                RCLCPP_ERROR(this->clientNode_->get_logger(), "Failed to call service");
+                RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::syncTime] Failed to call service.");
                 return false;
             }
         }
         catch(const std::exception& e)
         {
-            std::cerr << "[TimeSyncNode::syncTime] Unexpected Error" << e.what() << std::endl;
+            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::syncTime] Unexpected Error: %s", e.what());
             this->isSyncF_ = false;
             throw e;
         }
@@ -279,7 +260,7 @@ private:
     void _serviceCallback(const std::shared_ptr<vehicle_interfaces::srv::TimeSync::Request> request, 
                             std::shared_ptr<vehicle_interfaces::srv::TimeSync::Response> response)
     {
-        RCLCPP_INFO(this->get_logger(), "request: %d", request->request_code);
+        RCLCPP_INFO(this->get_logger(), "[TimeSyncServer::_serviceCallback] Request: %d", request->request_code);
         response->request_time = request->request_time;
         response->response_time = this->get_clock()->now();
         //printf("req time: %f\n", response->request_time.stamp.sec + response->request_time.stamp.nanosec / 1000000000.0);
@@ -298,7 +279,7 @@ public:
         this->server_ = this->create_service<vehicle_interfaces::srv::TimeSync>(serviceName, 
             std::bind(&TimeSyncServer::_serviceCallback, this, std::placeholders::_1, std::placeholders::_2));
         this->isUTCSync = false;
-        RCLCPP_INFO(this->get_logger(), "[TimeSyncServer] Constructed");
+        RCLCPP_INFO(this->get_logger(), "[TimeSyncServer] Constructed.");
     }
 };
 
