@@ -12,6 +12,8 @@
 #include <deque>
 #include <map>
 
+#include "rclcpp/rclcpp.hpp"
+
 // Ref: https://stackoverflow.com/a/55475023
 #ifndef __has_include
   static_assert(false, "__has_include not supported");
@@ -146,6 +148,14 @@ struct DescriptiveValue
         return this->value == tp.value && this->str == tp.str;
     }
 };
+
+void SpinNode(std::shared_ptr<rclcpp::Node> node, std::string threadName)
+{
+	std::cerr << threadName << " start..." << std::endl;
+	rclcpp::spin(node);
+	std::cerr << threadName << " exit." << std::endl;
+	rclcpp::shutdown();
+}
 
 std::vector<std::string> split(const std::string& str, const std::string& delimiter)
 {
