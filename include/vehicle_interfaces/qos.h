@@ -379,7 +379,7 @@ private:
         if (msg->qid == this->qosID_)// Ignore update in same qos ID
             return;
 
-        // RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] qid: %d.", msg->qid);
+        RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::_topic_callback] Received QoS update signal. (qid: %d)", msg->qid);
         
         std::vector<std::string> topicVec;
 
@@ -407,7 +407,7 @@ private:
             }
             catch(...)
             {
-                RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::requestQoS] Request error: %s.", topic.c_str());
+                RCLCPP_ERROR(this->get_logger(), "[QoSUpdateNode::_topic_callback] Request QoS failed: %s.", topic.c_str());
             }
         }
         
@@ -528,7 +528,6 @@ public:
 #endif
         {
             auto res = result.get();
-            RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Response: %d, qid: %ld.", res->response, res->qid);
             if (res->response)
             {
                 rmw_qos_profile_t prof = CvtMsgToRMWQoS(res->qos_profile);
