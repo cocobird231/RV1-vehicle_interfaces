@@ -341,12 +341,13 @@ const DescriptiveValue<TopicType> TopicProp::PUBLISHER_PREFIX = {TopicProp::PUBL
 const DescriptiveValue<TopicType> TopicProp::SUBSCRIPTION_PREFIX = {TopicProp::SUBSCRIPTION, "#S!"};
 const DescriptiveValue<TopicType> TopicProp::BOTH_PREFIX = {TopicProp::BOTH, "#B!"};
 
-/* The QoSUpdateNode class implements the QoS update mechanisms, including a subscription of QoS update topic and a client for QoS update service.
+/**
+ * The QoSUpdateNode class implements the QoS update mechanisms, including a subscription of QoS update topic and a client for QoS update service.
  * The publish or subscription node can easily inherit the QoSUpdateNode, and adding callback function with addQoSCallbackFunc() to get callback 
  * while QoS policy updated. 
  * The QoS update mechanisms relying on the name of topics, so it's necessary to add topic names to QoSUpdateNode by calling addQoSTracking() to 
  * tracks whether the QoS of specific topic needs to be update.
- */
+*/
 class QoSUpdateNode : virtual public rclcpp::Node
 {
 private:
@@ -444,7 +445,7 @@ public:
         
         {// Check QoS directory
             char buf[512];
-            sprintf(buf, "mkdir -p %s", qosDirPath_.generic_string().c_str());
+            sprintf(buf, "mkdir -p %s", this->qosDirPath_.generic_string().c_str());
             system(buf);
         }
 

@@ -22,12 +22,13 @@ using namespace std::chrono_literals;
 namespace vehicle_interfaces
 {
 
-/* The TimeSyncNode class implements the time sync mechanisms, which calling time sync server in a given fixed rate, and update the offset value 
+/**
+ * The TimeSyncNode class implements the time sync mechanisms, which calling time sync server in a given fixed rate, and update the offset value 
  * between local timestamp and time sync server.
  * The nodes can easily inherit the TimeSyncNode to get time sync supported. The getTimestamp() function returns the corrected timestamp, the 
  * getCorrectDuration() function returns the correction offset, and calling getTimestampType() function can get the timestamp type defined by 
  * Header under vehicle_interfaces. Manually process time sync is possible by calling syncTime().
- */
+*/
 class TimeSyncNode : virtual public rclcpp::Node
 {
 private:
@@ -149,11 +150,11 @@ public:
                 
                 this->_safeSave(this->correctDuration_, this->refTime_ - this->initTime_, this->correctDurationLock_);
                 
-                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Response: %d.", this->timeStampType_.load());
-                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Local time: %f s.", this->initTime_.seconds());
-                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Reference time: %f s.", this->refTime_.seconds());
-                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Transport time: %f ms.", (nowTime - this->initTime_).nanoseconds() / 1000000.0);
-                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Correct duration: %f us.", this->correctDuration_->nanoseconds() / 1000.0);
+                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Response: %d.", this->timeStampType_.load());
+                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Local time: %f s.", this->initTime_.seconds());
+                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Reference time: %f s.", this->refTime_.seconds());
+                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Transport time: %f ms.", (nowTime - this->initTime_).nanoseconds() / 1000000.0);
+                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Correct duration: %f us.", this->correctDuration_->nanoseconds() / 1000.0);
                 this->isSyncF_ = true;
                 return true;
             }

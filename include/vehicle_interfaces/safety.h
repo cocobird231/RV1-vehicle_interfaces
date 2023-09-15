@@ -22,8 +22,9 @@ using namespace std::chrono_literals;
 namespace vehicle_interfaces
 {
 
-/* SafetyNode
- */
+/**
+ * SafetyNode
+*/
 class SafetyNode : virtual public rclcpp::Node
 {
 private:
@@ -206,10 +207,10 @@ public:
     {
         this->regServer_ = this->create_service<vehicle_interfaces::srv::SafetyReg>(serviceName + "_Reg", 
             std::bind(&SafetyServer::_regServerCallback, this, std::placeholders::_1, std::placeholders::_2));
-        RCLCPP_INFO(this->get_logger(), "[SafetyRegServer] Constructed.");
 
         this->reqServer_ = this->create_service<vehicle_interfaces::srv::SafetyReq>(serviceName + "_Req", 
             std::bind(&SafetyServer::_reqServerCallback, this, std::placeholders::_1, std::placeholders::_2));
+        
         RCLCPP_INFO(this->get_logger(), "[SafetyReqServer] Constructed.");
     }
 };
