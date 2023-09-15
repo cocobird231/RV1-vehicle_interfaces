@@ -1,0 +1,6 @@
+# Device information
+DevInfo dev_info
+
+---
+# response is true if value accepted, otherwise server ignore the request and response false
+bool response

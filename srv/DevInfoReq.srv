@@ -1,0 +1,9 @@
+# Device information (Filled at least one of the elements, or set node_name to "all" to get all info)
+DevInfo dev_info
+
+---
+# response is true if value accepted, otherwise server ignore the request and response false
+bool response
+
+# Device information
+DevInfo[] dev_info_vec

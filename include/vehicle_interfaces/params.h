@@ -20,6 +20,8 @@ public:
     std::string timesyncService = "timesync_0";
     double timesyncPeriod_ms = 10000.0;
     double timesyncAccuracy_ms = 2.0;
+    std::string devInfoService = "devinfo_0";
+    std::string devInterface = "eth0";
 
 private:
     void _getParams()
@@ -33,6 +35,8 @@ private:
         this->get_parameter("timesyncService", this->timesyncService);
         this->get_parameter("timesyncPeriod_ms", this->timesyncPeriod_ms);
         this->get_parameter("timesyncAccuracy_ms", this->timesyncAccuracy_ms);
+        this->get_parameter("devInfoService", this->devInfoService);
+        this->get_parameter("devInterface", this->devInterface);
 
         // Change nodeName into "<nodeName>_<id>_node" format
         // this->nodeName += "_" + std::to_string(this->id) + "_node";
@@ -50,6 +54,8 @@ public:
         this->declare_parameter<std::string>("timesyncService", this->timesyncService);
         this->declare_parameter<double>("timesyncPeriod_ms", this->timesyncPeriod_ms);
         this->declare_parameter<double>("timesyncAccuracy_ms", this->timesyncAccuracy_ms);
+        this->declare_parameter<std::string>("devInfoService", this->devInfoService);
+        this->declare_parameter<std::string>("devInterface", this->devInterface);
         this->_getParams();
     }
 };

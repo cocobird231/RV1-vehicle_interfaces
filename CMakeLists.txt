@@ -41,6 +41,7 @@ set(msg_files
 )
 
 set(msg_content_files
+  "msg_content/DevInfo.msg"
   "msg_content/QosProfile.msg"
 )
 
@@ -51,6 +52,8 @@ set(msg_geo_files
 )
 
 set(srv_files
+  "srv/DevInfoReg.srv"
+  "srv/DevInfoReq.srv"
   "srv/IDServer.srv"
   "srv/QosReg.srv"
   "srv/QosReq.srv"

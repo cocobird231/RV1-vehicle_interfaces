@@ -157,21 +157,46 @@ void SpinNode(std::shared_ptr<rclcpp::Node> node, std::string threadName)
 	rclcpp::shutdown();
 }
 
-void ConnToService(rclcpp::ClientBase::SharedPtr client, std::chrono::milliseconds timeout = std::chrono::milliseconds(1000), int retry = 5)
+bool ConnToService(rclcpp::ClientBase::SharedPtr client, bool& stopF, std::chrono::milliseconds timeout = std::chrono::milliseconds(1000), int retry = 5)
 {
-    while (!client->wait_for_service(timeout) && retry-- > 0)
+    if (retry > 0)
     {
-        if (!rclcpp::ok())
+        while (!client->wait_for_service(timeout) && retry-- > 0 && !stopF)
         {
-            printf("[ConnToService] Interrupted while waiting for the service. Exiting.\n");
-            return;
+            if (!rclcpp::ok())
+            {
+                printf("[ConnToService] Interrupted while waiting for the service. Exiting.\n");
+                return false;
+            }
+            printf("[ConnToService] Service not available, waiting again...\n");
         }
-        printf("[ConnToService] Service not available, waiting again...\n");
-    }
-    if (retry < 0)
-        printf("[ConnToService] Connect to service failed.");
-    else
+        if (retry < 0 || stopF)
+        {
+            printf("[ConnToService] Connect to service failed.");
+            return false;
+        }
         printf("[ConnToService] Service connected.");
+        return true;
+    }
+    else
+    {
+        while (!client->wait_for_service(timeout) && !stopF)
+        {
+            if (!rclcpp::ok())
+            {
+                printf("[ConnToService] Interrupted while waiting for the service. Exiting.\n");
+                return false;
+            }
+            printf("[ConnToService] Service not available, waiting again...\n");
+        }
+        if (stopF)
+        {
+            printf("[ConnToService] Connect to service failed.");
+            return false;
+        }
+        printf("[ConnToService] Service connected.");
+        return true;
+    }
 }
 
 std::vector<std::string> split(const std::string& str, const std::string& delimiter)
