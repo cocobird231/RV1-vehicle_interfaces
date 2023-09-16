@@ -22,3 +22,23 @@ class TopicNames():
     
     def __eq__(self, obj):
         return self.fullName == obj.fullName
+
+def ConnToService(client, timeout_s, retry : int = 5):
+    if (retry > 0):
+        cnt = retry
+        while (not client.wait_for_service(timeout_sec=timeout_s) and cnt > 0):
+            self.get_logger().error('[ConnToService] Service not available, waiting again...')
+            cnt -= 1
+        
+        if (cnt < 0):
+            self.get_logger().error('[ConnToService] Connect to service failed.')
+            return False
+
+        self.get_logger().info('[ConnToService] Service connected.')
+        return True
+    else:
+        while (not client.wait_for_service(timeout_sec=timeout_s)):
+            self.get_logger().error('[ConnToService] Service not available, waiting again...')
+
+        self.get_logger().info('[ConnToService] Service connected.')
+        return True

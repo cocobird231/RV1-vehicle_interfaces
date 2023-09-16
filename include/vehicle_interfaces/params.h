@@ -1,3 +1,4 @@
+// #ver=1.2
 #pragma once
 #include "rclcpp/rclcpp.hpp"
 
@@ -14,14 +15,14 @@ public:
     std::string nodeName = "node";
     std::string ns = "";
     uint8_t id = 0;
-    std::string qosService = "qos_0";
+    std::string devInfoService = "";// devinfo_0
+    std::string devInterface = "eth0";
+    std::string qosService = "";// qos_0
     std::string qosDirPath = "qos";
-    std::string safetyService = "safety_0";
-    std::string timesyncService = "timesync_0";
+    std::string safetyService = "";// safety_0
+    std::string timesyncService = "";// timesync_0
     double timesyncPeriod_ms = 10000.0;
     double timesyncAccuracy_ms = 2.0;
-    std::string devInfoService = "devinfo_0";
-    std::string devInterface = "eth0";
 
 private:
     void _getParams()
@@ -29,14 +30,14 @@ private:
         this->get_parameter("nodeName", this->nodeName);
         this->get_parameter("ns", this->ns);
         this->get_parameter("id", this->id);
+        this->get_parameter("devInfoService", this->devInfoService);
+        this->get_parameter("devInterface", this->devInterface);
         this->get_parameter("qosService", this->qosService);
         this->get_parameter("qosDirPath", this->qosDirPath);
         this->get_parameter("safetyService", this->safetyService);
         this->get_parameter("timesyncService", this->timesyncService);
         this->get_parameter("timesyncPeriod_ms", this->timesyncPeriod_ms);
         this->get_parameter("timesyncAccuracy_ms", this->timesyncAccuracy_ms);
-        this->get_parameter("devInfoService", this->devInfoService);
-        this->get_parameter("devInterface", this->devInterface);
 
         // Change nodeName into "<nodeName>_<id>_node" format
         // this->nodeName += "_" + std::to_string(this->id) + "_node";
@@ -48,14 +49,14 @@ public:
         this->declare_parameter<std::string>("nodeName", this->nodeName);
         this->declare_parameter<std::string>("ns", this->ns);
         this->declare_parameter<int>("id", this->id);
+        this->declare_parameter<std::string>("devInfoService", this->devInfoService);
+        this->declare_parameter<std::string>("devInterface", this->devInterface);
         this->declare_parameter<std::string>("qosService", this->qosService);
         this->declare_parameter<std::string>("qosDirPath", this->qosDirPath);
         this->declare_parameter<std::string>("safetyService", this->safetyService);
         this->declare_parameter<std::string>("timesyncService", this->timesyncService);
         this->declare_parameter<double>("timesyncPeriod_ms", this->timesyncPeriod_ms);
         this->declare_parameter<double>("timesyncAccuracy_ms", this->timesyncAccuracy_ms);
-        this->declare_parameter<std::string>("devInfoService", this->devInfoService);
-        this->declare_parameter<std::string>("devInterface", this->devInterface);
         this->_getParams();
     }
 };

@@ -1,7 +1,7 @@
 #pragma once
 #include <rclcpp/rclcpp.hpp>
-#include "params.h"
 #include "devinfo.h"
+#include "params.h"
 #include "qos.h"
 #include "safety.h"
 #include "timesync.h"
@@ -21,4 +21,3 @@ public:
 };
 
 }
-

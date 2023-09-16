@@ -1,3 +1,4 @@
+#ver=1.2
 import rclpy
 from rclpy.node import Node
 
@@ -8,16 +9,20 @@ class GenericParams(Node):
         self.nodeName = 'node'
         self.ns = ''
         self.id = 0
-        self.qosService = 'qos_0'
+        self.devInfoService = ''# devinfo_0
+        self.devInterface = 'eth0'
+        self.qosService = ''# qos_0
         self.qosDirPath = 'qos'
-        self.safetyService = 'safety_0'
-        self.timesyncService = 'timesync_0'
+        self.safetyService = ''# safety_0
+        self.timesyncService = ''# timesync_0
         self.timesyncPeriod_ms = 10000.0
         self.timesyncAccuracy_ms = 2.0
 
         self.declare_parameter('nodeName', self.nodeName)
         self.declare_parameter('ns', self.ns)
         self.declare_parameter('id', self.id)
+        self.declare_parameter('devInfoService', self.devInfoService)
+        self.declare_parameter('devInterface', self.devInterface)
         self.declare_parameter('qosService', self.qosService)
         self.declare_parameter('qosDirPath', self.qosDirPath)
         self.declare_parameter('safetyService', self.safetyService)
@@ -30,6 +35,8 @@ class GenericParams(Node):
         self.nodeName = rclpy.parameter.parameter_value_to_python(self.get_parameter('nodeName').get_parameter_value())
         self.ns = rclpy.parameter.parameter_value_to_python(self.get_parameter('ns').get_parameter_value())
         self.id = rclpy.parameter.parameter_value_to_python(self.get_parameter('id').get_parameter_value())
+        self.devInfoService = rclpy.parameter.parameter_value_to_python(self.get_parameter('devInfoService').get_parameter_value())
+        self.devInterface = rclpy.parameter.parameter_value_to_python(self.get_parameter('devInterface').get_parameter_value())
         self.qosService = rclpy.parameter.parameter_value_to_python(self.get_parameter('qosService').get_parameter_value())
         self.qosDirPath = rclpy.parameter.parameter_value_to_python(self.get_parameter('qosDirPath').get_parameter_value())
         self.safetyService = rclpy.parameter.parameter_value_to_python(self.get_parameter('safetyService').get_parameter_value())
