@@ -159,6 +159,7 @@ void SpinNode(std::shared_ptr<rclcpp::Node> node, std::string threadName)
 
 bool ConnToService(rclcpp::ClientBase::SharedPtr client, bool& stopF, std::chrono::milliseconds timeout = std::chrono::milliseconds(1000), int retry = 5)
 {
+    printf("Connect to service: %s (%d)\n", client->get_service_name(), retry);
     if (retry > 0)
     {
         while (!client->wait_for_service(timeout) && retry-- > 0 && !stopF)
@@ -168,7 +169,7 @@ bool ConnToService(rclcpp::ClientBase::SharedPtr client, bool& stopF, std::chron
                 printf("[ConnToService] Interrupted while waiting for the service. Exiting.\n");
                 return false;
             }
-            printf("[ConnToService] Service not available, waiting again...\n");
+            printf("[ConnToService] Service not available, waiting again... (%d)\n", retry);
         }
         if (retry < 0 || stopF)
         {

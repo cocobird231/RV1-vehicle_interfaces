@@ -75,7 +75,7 @@ inline bool CompDevInfo(const vehicle_interfaces::msg::DevInfo d1, const vehicle
     return false;
 }
 
-bool LoadDevInfoToJSON(const fs::path& filePath, vehicle_interfaces::msg::DevInfo& dInfo)
+bool LoadDevInfoFromJSON(const fs::path& filePath, vehicle_interfaces::msg::DevInfo& dInfo)
 {
     try
     {
@@ -448,7 +448,7 @@ private:
             if (fp.path().extension() == ".conflict")
                 continue;
             auto msg = vehicle_interfaces::msg::DevInfo();
-            if (LoadDevInfoToJSON(fp, msg))
+            if (LoadDevInfoFromJSON(fp, msg))
                 this->devInfoList_[msg.node_name] = msg;
         }
     }

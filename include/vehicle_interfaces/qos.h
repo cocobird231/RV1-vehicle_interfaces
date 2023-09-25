@@ -265,7 +265,17 @@ bool DumpRMWQoSToJSON(const fs::path& qosFilePath, const rmw_qos_profile_t& prof
     }
 }
 
-
+inline bool CompRMWQoS(const rmw_qos_profile_t& p1, const rmw_qos_profile_t& p2)
+{
+    return p1.history == p2.history && 
+            p1.depth == p2.depth && 
+            p1.reliability == p2.reliability && 
+            p1.durability == p2.durability && 
+            0 == CompRMWTime(p1.deadline, p2.deadline) &&
+            0 == CompRMWTime(p1.lifespan, p2.lifespan) &&
+            p1.liveliness == p2.liveliness && 
+            0 == CompRMWTime(p1.liveliness_lease_duration, p2.liveliness_lease_duration);
+}
 
 
 using TopicType = DescriptiveValue<uint8_t>;
@@ -297,6 +307,7 @@ private:
         else
             this->fullName = "#B!" + this->name;
     }
+
 public:
     TopicProp(std::string topicName) : name(topicName), type(TopicProp::BOTH)
     {
@@ -572,6 +583,8 @@ private:
     double pubInterval_ms_;
     std::mutex paramsLock_;
 
+    fs::path recordFilePath_;
+
 private:
     void _getParams()
     {
@@ -641,8 +654,8 @@ private:
         }
         else if (request->clear_profiles)
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] Clear tmp qmap.");
-            this->clearTmpQoSProfile();
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] Recover tmp qmap.");
+            this->recoverTmpQoSProfile();
         }
         else if (request->remove_profile)
         {
@@ -652,8 +665,8 @@ private:
         }
         else
         {
-            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: set %s [%s].", 
-                tp.fullName.c_str(), tp.type.str.c_str());
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::_regServiceCallback] request: set %s (%02d/%02d/%02d) [%s].", 
+                tp.fullName.c_str(), request->qos_profile.history, request->qos_profile.depth, request->qos_profile.reliability, tp.type.str.c_str());
             this->setTmpQoSProfile(tp.fullName, CvtMsgToRMWQoS(request->qos_profile));
         }
         response->response = true;
@@ -716,7 +729,6 @@ REQ_CHECK_TOPIC_NAME:
     // Publish QoS update signal
     void _timerCallback()
     {
-        // TODO
         std::unique_lock<std::mutex> qmapLocker(this->qmapLock_, std::defer_lock);
         std::unique_lock<std::mutex> paramsLocker(this->paramsLock_, std::defer_lock);
 
@@ -743,27 +755,17 @@ REQ_CHECK_TOPIC_NAME:
     }
 
     // Return indicator map describes which topic_name profile should be updated
-    // Add: check size between qmap and qmapTmp to preserve changes for profile removal
     std::pair<std::vector<std::string>, bool> _qmapUpdateCheck()
     {
         std::lock_guard<std::mutex> locker(this->qmapLock_);
-
-
+        
         std::pair<std::vector<std::string>, bool> updateVec;// Need to be trans to non-fullname
         updateVec.second = this->qmap_.size() != this->qmapTmp_.size();// True if different sizes
         for (auto& [k, v] : this->qmapTmp_)
         {
             try
             {
-                bool compF = v.history == this->qmap_[k].history && 
-                            v.depth == this->qmap_[k].depth && 
-                            v.reliability == this->qmap_[k].reliability && 
-                            v.durability == this->qmap_[k].durability && 
-                            0 == CompRMWTime(v.deadline, this->qmap_[k].deadline) &&
-                            0 == CompRMWTime(v.lifespan, this->qmap_[k].lifespan) &&
-                            v.liveliness == this->qmap_[k].liveliness && 
-                            0 == CompRMWTime(v.liveliness_lease_duration, this->qmap_[k].liveliness_lease_duration);
-                if (!compF)
+                if (!CompRMWQoS(v, this->qmap_[k]))
                     updateVec.first.push_back(TopicProp::retrieveTopicProp(k).name);
             }
             catch (...)
@@ -777,9 +779,29 @@ REQ_CHECK_TOPIC_NAME:
     }
 
 public:
-    QoSServer(const std::string& nodeName, const std::string& serviceName) : rclcpp::Node(nodeName), 
-        qid_(0), enablePubF_(false), pubInterval_ms_(10000), nodeName_(nodeName)
+    QoSServer(const std::string& nodeName, const std::string& serviceName, const std::string& recordFilePath) : rclcpp::Node(nodeName), 
+        nodeName_(nodeName), 
+        recordFilePath_(recordFilePath), 
+        qid_(0), 
+        enablePubF_(false), 
+        pubInterval_ms_(10000)
     {
+        {// Check QoS directory
+            char buf[512];
+            sprintf(buf, "mkdir -p %s", this->recordFilePath_.parent_path().generic_string().c_str());
+            system(buf);
+        }
+
+        if (!this->loadQmapFromJSON(this->recordFilePath_))
+            RCLCPP_WARN(this->get_logger(), "[QoSServer] Record file not found: %s", this->recordFilePath_.generic_string().c_str());
+        else
+        {
+            this->setQmap();// If loaded, the qid will started at 1, forced clients to check once while start up.
+            printf("Qmap found, size: %d, qid: %d\n", this->qmap_.size(), this->qid_.load());
+            for (const auto& [k, v] : this->qmap_)
+                printf("%s (%02d/%02d/%02d)\n", k.c_str(), v.history, v.depth, v.reliability);
+        }
+
         this->declare_parameter<bool>("enabled_publish", this->enablePubF_);
         this->declare_parameter<double>("publish_interval_ms", this->pubInterval_ms_);
         this->_getParams();
@@ -822,24 +844,35 @@ public:
         return {false, "[QoSServer::stopPublish] Publish timer not set."};
     }
 
+    // Set single profile in tmp qmap.
     void setTmpQoSProfile(const std::string& topicName, const rmw_qos_profile_t& prof)
     {
         std::lock_guard<std::mutex> locker(this->qmapLock_);
         this->qmapTmp_[topicName] = prof;
     }
 
+    // Remove single profile in tmp qmap.
     void removeTmpQoSProfile(const std::string& topicName)
     {
         std::lock_guard<std::mutex> locker(this->qmapLock_);
         this->qmapTmp_.erase(topicName);
     }
 
+    // Clear qmapTmp, if process setQmap() will change qid.
     void clearTmpQoSProfile()
     {
         std::lock_guard<std::mutex> locker(this->qmapLock_);
         this->qmapTmp_.clear();
     }
 
+    // Recover qmapTmp from qmap, if process setQmap() will not change qid.
+    void recoverTmpQoSProfile()
+    {
+        std::lock_guard<std::mutex> locker(this->qmapLock_);
+        this->qmapTmp_ = this->qmap_;
+    }
+
+    // Set qmap and dump file if tmp qmap has changed.
     void setQmap()
     {
         auto [updateVec, updateF] = this->_qmapUpdateCheck();
@@ -851,7 +884,66 @@ public:
             this->qid_ += 1;
             this->updateList_ = updateVec;
             locker.unlock();
+            this->dumpQmapToJSON(this->recordFilePath_);
         }
+    }
+
+    // Load record file, stored into qmapTmp.
+    bool loadQmapFromJSON(fs::path filePath)
+    {
+        std::lock_guard<std::mutex> locker(this->qmapLock_);
+        try
+        {
+            nlohmann::json json;
+            json.update(nlohmann::json::parse(std::ifstream(filePath)));
+            for (const auto& [fullTopicName, prof] : json.items())
+            {
+                rmw_qos_profile_t _profile;
+                _profile.history = (rmw_qos_history_policy_e)prof["history"];
+                _profile.depth = prof["depth"];
+                _profile.reliability = (rmw_qos_reliability_policy_e)prof["reliability"];
+                _profile.durability = (rmw_qos_durability_policy_e)prof["durability"];
+                _profile.deadline = CvtMsgToRMWTime(prof["deadline_ms"]);
+                _profile.lifespan = CvtMsgToRMWTime(prof["lifespan_ms"]);
+                _profile.liveliness = (rmw_qos_liveliness_policy_e)prof["liveliness"];
+                _profile.liveliness_lease_duration = CvtMsgToRMWTime(prof["liveliness_lease_duration_ms"]);
+                this->qmapTmp_[fullTopicName] = _profile;
+            }
+        }
+        catch (...)
+        {
+            this->qmapTmp_ = this->qmap_;// Recover tmp if load failed
+            return false;
+        }
+        return true;
+    }
+
+    // Dump qmap to file
+    bool dumpQmapToJSON(fs::path filePath)
+    {
+        std::lock_guard<std::mutex> locker(this->qmapLock_);
+        try
+        {
+            nlohmann::json json;
+            for (auto& [fullTopicName, prof] : this->qmap_)
+            {
+                json[fullTopicName]["history"] = (int8_t)prof.history;
+                json[fullTopicName]["depth"] = prof.depth;
+                json[fullTopicName]["reliability"] = (int8_t)prof.reliability;
+                json[fullTopicName]["durability"] = (int8_t)prof.durability;
+                json[fullTopicName]["deadline_ms"] = CvtRMWTimeToMsg(prof.deadline);
+                json[fullTopicName]["lifespan_ms"] = CvtRMWTimeToMsg(prof.lifespan);
+                json[fullTopicName]["liveliness"] = (int8_t)prof.liveliness;
+                json[fullTopicName]["liveliness_lease_duration_ms"] = CvtRMWTimeToMsg(prof.liveliness_lease_duration);
+            }
+            std::ofstream outFile(filePath);
+            outFile << json;
+        }
+        catch (...)
+        {
+            return false;
+        }
+        return true;
     }
 };
 
