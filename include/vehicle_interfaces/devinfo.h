@@ -282,9 +282,22 @@ public:
         
         if ((this->ipv4Addr_.length() <= 0 && this->ipv6Addr_.length() <= 0) || this->macAddr_.length() <= 0 || this->hostname_.length() <= 0)
             return false;
+        
+        // Add namespace into nodeName
+        std::string nodeName = this->nodeName_;
+        if (strlen(this->get_namespace()) > 0)// Namespace exists
+        {
+            if (nodeName.find(this->get_namespace()) == std::string::npos)
+            {
+                if (nodeName[0] == '/')
+                    nodeName = std::string(this->get_namespace()) + nodeName;
+                else
+                    nodeName = std::string(this->get_namespace()) + "/" + nodeName;
+            }
+        }
 
         auto msg = vehicle_interfaces::msg::DevInfo();
-        msg.node_name = this->nodeName_;
+        msg.node_name = nodeName;
         msg.hostname = this->hostname_;
         msg.mac_addr = this->macAddr_;
         msg.ipv4_addr = this->ipv4Addr_;

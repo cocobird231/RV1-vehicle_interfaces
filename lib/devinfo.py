@@ -101,8 +101,16 @@ class DevInfoNode(NodeAdaptor):
         if ((len(self.__ipv4Addr) <= 0 and len(self.__ipv6Addr) <= 0) or len(self.__macAddr) <= 0 or len(self.__hostname) <= 0):
             return False
         
+        nodeName = self.__nodeName
+        if (len(self.get_namespace()) > 0):
+            if (nodeName.find(self.get_namespace()) < 0):# nodeName not include namespace
+                if (nodeName[0] == '/'):
+                    nodeName = self.get_namespace() + nodeName
+                else:
+                    nodeName = self.get_namespace() + '/' + nodeName
+        
         msg = DevInfo()
-        msg.node_name = self.__nodeName
+        msg.node_name = nodeName
         msg.hostname = self.__hostname
         msg.mac_addr = self.__macAddr
         msg.ipv4_addr = self.__ipv4Addr
