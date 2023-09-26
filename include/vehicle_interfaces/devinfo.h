@@ -443,7 +443,7 @@ private:
     void _loadDevInfoFile()
     {
         std::lock_guard<std::mutex> locker(this->devInfoListLock_);
-        for (auto& fp : std::filesystem::directory_iterator(this->devInfoDirPath_))
+        for (auto& fp : fs::directory_iterator(this->devInfoDirPath_))
         {
             if (fp.path().extension() == ".conflict")
                 continue;

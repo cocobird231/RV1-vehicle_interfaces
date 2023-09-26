@@ -896,6 +896,26 @@ public:
         {
             nlohmann::json json;
             json.update(nlohmann::json::parse(std::ifstream(filePath)));
+            
+
+#if ROS_DISTRO < 2// Foxy and older
+            for (const auto& tn : json.items())
+            {
+                auto fullTopicName = tn.key();
+                auto prof = tn.value();
+
+                rmw_qos_profile_t _profile;
+                _profile.history = (rmw_qos_history_policy_t)prof["history"];
+                _profile.depth = prof["depth"];
+                _profile.reliability = (rmw_qos_reliability_policy_t)prof["reliability"];
+                _profile.durability = (rmw_qos_durability_policy_t)prof["durability"];
+                _profile.deadline = CvtMsgToRMWTime(prof["deadline_ms"]);
+                _profile.lifespan = CvtMsgToRMWTime(prof["lifespan_ms"]);
+                _profile.liveliness = (rmw_qos_liveliness_policy_t)prof["liveliness"];
+                _profile.liveliness_lease_duration = CvtMsgToRMWTime(prof["liveliness_lease_duration_ms"]);
+                this->qmapTmp_[fullTopicName] = _profile;
+            }
+#else
             for (const auto& [fullTopicName, prof] : json.items())
             {
                 rmw_qos_profile_t _profile;
@@ -909,6 +929,7 @@ public:
                 _profile.liveliness_lease_duration = CvtMsgToRMWTime(prof["liveliness_lease_duration_ms"]);
                 this->qmapTmp_[fullTopicName] = _profile;
             }
+#endif
         }
         catch (...)
         {
