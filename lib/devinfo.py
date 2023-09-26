@@ -50,7 +50,6 @@ class DevInfoNode(NodeAdaptor):
                 time.sleep(1)
             while (not self.__getMACAddr() and not self.__regClientStopF):
                 time.sleep(1)
-            
             ConnToService(self.__regClient, 10, -1)
             self.__reqEnableF = True
             
@@ -91,7 +90,7 @@ class DevInfoNode(NodeAdaptor):
 
         subStr = rd[rd.find('^') + 1 : rd.rfind('!')]
         if (len(subStr) > 0):
-            self.__ipv4Addr = subStr
+            self.__macAddr = subStr
             return True
         return False
     

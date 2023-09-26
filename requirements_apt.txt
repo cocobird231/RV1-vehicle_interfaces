@@ -1,3 +1,2 @@
-libopencv-dev
-python3-opencv
 nlohmann-json3-dev
+iproute2

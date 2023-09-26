@@ -24,21 +24,22 @@ class TopicNames():
         return self.fullName == obj.fullName
 
 def ConnToService(client, timeout_s, retry : int = 5):
+    print("[ConnToService] Connect to service: %s (%d)\n" %(client.srv_name, retry))
     if (retry > 0):
         cnt = retry
         while (not client.wait_for_service(timeout_sec=timeout_s) and cnt > 0):
-            self.get_logger().error('[ConnToService] Service not available, waiting again...')
             cnt -= 1
+            print('[ConnToService (%s)] Service not available, waiting again... (%d)' %(client.srv_name, cnt))
         
         if (cnt < 0):
-            self.get_logger().error('[ConnToService] Connect to service failed.')
+            print('[ConnToService (%s)] Connect to service failed.' %client.srv_name)
             return False
 
-        self.get_logger().info('[ConnToService] Service connected.')
+        print('[ConnToService (%s)] Service connected.' %client.srv_name)
         return True
     else:
         while (not client.wait_for_service(timeout_sec=timeout_s)):
-            self.get_logger().error('[ConnToService] Service not available, waiting again...')
+            print('[ConnToService (%s)] Service not available, waiting again...' %client.srv_name)
 
-        self.get_logger().info('[ConnToService] Service connected.')
+        print('[ConnToService (%s)] Service connected.' %client.srv_name)
         return True

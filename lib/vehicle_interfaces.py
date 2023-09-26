@@ -6,7 +6,7 @@ from vehicle_interfaces.timesync import TimeSyncNode
 
 from vehicle_interfaces.node_adaptor import NodeAdaptor
 
-class VehicleServiceNode(QoSUpdateNode, SafetyNode, TimeSyncNode):
+class VehicleServiceNode(DevInfoNode, QoSUpdateNode, SafetyNode, TimeSyncNode):
     def __init__(self, params : GenericParams):
         DevInfoNode.__init__(self, params.nodeName, params.devInfoService, params.devInterface)
         QoSUpdateNode.__init__(self, params.nodeName, params.qosService, params.qosDirPath)

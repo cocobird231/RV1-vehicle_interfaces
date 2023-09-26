@@ -159,24 +159,24 @@ void SpinNode(std::shared_ptr<rclcpp::Node> node, std::string threadName)
 
 bool ConnToService(rclcpp::ClientBase::SharedPtr client, bool& stopF, std::chrono::milliseconds timeout = std::chrono::milliseconds(1000), int retry = 5)
 {
-    printf("Connect to service: %s (%d)\n", client->get_service_name(), retry);
+    printf("[ConnToService] Connect to service: %s (%d)\n", client->get_service_name(), retry);
     if (retry > 0)
     {
         while (!client->wait_for_service(timeout) && retry-- > 0 && !stopF)
         {
             if (!rclcpp::ok())
             {
-                printf("[ConnToService] Interrupted while waiting for the service. Exiting.\n");
+                printf("[ConnToService (%s)] Interrupted while waiting for the service. Exiting.\n", client->get_service_name());
                 return false;
             }
-            printf("[ConnToService] Service not available, waiting again... (%d)\n", retry);
+            printf("[ConnToService (%s)] Service not available, waiting again... (%d)\n", client->get_service_name(), retry);
         }
         if (retry < 0 || stopF)
         {
-            printf("[ConnToService] Connect to service failed.");
+            printf("[ConnToService (%s)] Connect to service failed.", client->get_service_name());
             return false;
         }
-        printf("[ConnToService] Service connected.");
+        printf("[ConnToService (%s)] Service connected.", client->get_service_name());
         return true;
     }
     else
@@ -185,17 +185,17 @@ bool ConnToService(rclcpp::ClientBase::SharedPtr client, bool& stopF, std::chron
         {
             if (!rclcpp::ok())
             {
-                printf("[ConnToService] Interrupted while waiting for the service. Exiting.\n");
+                printf("[ConnToService (%s)] Interrupted while waiting for the service. Exiting.\n", client->get_service_name());
                 return false;
             }
-            printf("[ConnToService] Service not available, waiting again...\n");
+            printf("[ConnToService (%s)] Service not available, waiting again...\n", client->get_service_name());
         }
         if (stopF)
         {
-            printf("[ConnToService] Connect to service failed.");
+            printf("[ConnToService (%s)] Connect to service failed.", client->get_service_name());
             return false;
         }
-        printf("[ConnToService] Service connected.");
+        printf("[ConnToService (%s)] Service connected.", client->get_service_name());
         return true;
     }
 }
