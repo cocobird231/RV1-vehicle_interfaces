@@ -257,13 +257,17 @@ public:
         reqEnableF_(false)
     {
         if (devInfoServiceName == "")
+        {
+            RCLCPP_WARN(this->get_logger(), "[DevInfoNode] Ignored.");
             return;
+        }
         
         this->regClientNode_ = rclcpp::Node::make_shared(nodeName + "_devinforeg_client");
         this->regClient_ = this->regClientNode_->create_client<vehicle_interfaces::srv::DevInfoReg>(devInfoServiceName + "_Reg");
         this->nodeEnableF_ = true;
 
         this->regClientTh_ = std::thread(&DevInfoNode::_waitService, this);
+        RCLCPP_INFO(this->get_logger(), "[DevInfoNode] Constructed.");
     }
 
     ~DevInfoNode()

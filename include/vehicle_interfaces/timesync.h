@@ -91,11 +91,16 @@ public:
     TimeSyncNode(const std::string& nodeName, 
                     const std::string& timeServiceName, 
                     double syncInterval_ms, 
-                    double syncAccuracy_ms) : rclcpp::Node(nodeName), 
+                    double syncAccuracy_ms) : 
+        rclcpp::Node(nodeName), 
         nodeEnableF_(false)
     {
         if (timeServiceName == "")
+        {
+            RCLCPP_WARN(this->get_logger(), "[TimeSyncNode] Ignored.");
             return;
+        }
+
         this->clientNode_ = rclcpp::Node::make_shared(nodeName + "_timesync_client");
         this->client_ = this->clientNode_->create_client<vehicle_interfaces::srv::TimeSync>(timeServiceName);
         this->isSyncF_ = false;
@@ -116,6 +121,7 @@ public:
             this->timeSyncTimer_ = new Timer(syncInterval_ms, std::bind(&TimeSyncNode::_timerCallback, this));
             this->timeSyncTimer_->start();
         }
+        RCLCPP_INFO(this->get_logger(), "[TimeSyncNode] Constructed.");
     }
 
     bool syncTime()

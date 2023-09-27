@@ -38,9 +38,6 @@ private:
         this->get_parameter("timesyncService", this->timesyncService);
         this->get_parameter("timesyncPeriod_ms", this->timesyncPeriod_ms);
         this->get_parameter("timesyncAccuracy_ms", this->timesyncAccuracy_ms);
-
-        // Change nodeName into "<nodeName>_<id>_node" format
-        // this->nodeName += "_" + std::to_string(this->id) + "_node";
     }
 
 public:

@@ -173,10 +173,10 @@ bool ConnToService(rclcpp::ClientBase::SharedPtr client, bool& stopF, std::chron
         }
         if (retry < 0 || stopF)
         {
-            printf("[ConnToService (%s)] Connect to service failed.", client->get_service_name());
+            printf("[ConnToService (%s)] Connect to service failed.\n", client->get_service_name());
             return false;
         }
-        printf("[ConnToService (%s)] Service connected.", client->get_service_name());
+        printf("[ConnToService (%s)] Service connected.\n", client->get_service_name());
         return true;
     }
     else
@@ -192,10 +192,10 @@ bool ConnToService(rclcpp::ClientBase::SharedPtr client, bool& stopF, std::chron
         }
         if (stopF)
         {
-            printf("[ConnToService (%s)] Connect to service failed.", client->get_service_name());
+            printf("[ConnToService (%s)] Connect to service failed.\n", client->get_service_name());
             return false;
         }
-        printf("[ConnToService (%s)] Service connected.", client->get_service_name());
+        printf("[ConnToService (%s)] Service connected.\n", client->get_service_name());
         return true;
     }
 }

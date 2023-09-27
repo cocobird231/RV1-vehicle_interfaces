@@ -445,14 +445,18 @@ private:
     }
 
 public:
-    QoSUpdateNode(const std::string& nodeName, const std::string& qosServiceName, const std::string& qosDirPath) : rclcpp::Node(nodeName), 
+    QoSUpdateNode(const std::string& nodeName, const std::string& qosServiceName, const std::string& qosDirPath) : 
+        rclcpp::Node(nodeName), 
         qosDirPath_(qosDirPath), 
         qosID_(0), 
         callbackF_(false), 
         nodeEnableF_(false)
     {
         if (qosServiceName == "")
+        {
+            RCLCPP_WARN(this->get_logger(), "[QoSUpdateNode] Ignored.");
             return;
+        }
         
         {// Check QoS directory
             char buf[512];
@@ -466,7 +470,7 @@ public:
         this->subscription_ = this->create_subscription<vehicle_interfaces::msg::QosUpdate>(qosServiceName, 
             10, std::bind(&QoSUpdateNode::_topic_callback, this, std::placeholders::_1));
         this->nodeEnableF_ = true;
-        // RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode] Constructed.");
+        RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode] Constructed.");
     }
 
     QoSPair addQoSTracking(std::string topicName)

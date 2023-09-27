@@ -38,11 +38,15 @@ private:
     std::atomic<bool> nodeEnableF_;
 
 public:
-    SafetyNode(const std::string& nodeName, const std::string& safetyServiceName) : rclcpp::Node(nodeName), 
+    SafetyNode(const std::string& nodeName, const std::string& safetyServiceName) : 
+        rclcpp::Node(nodeName), 
         nodeEnableF_(false)
     {
         if (safetyServiceName == "")
+        {
+            RCLCPP_WARN(this->get_logger(), "[SafetyNode] Ignored.");
             return;
+        }
         this->regClientNode_ = rclcpp::Node::make_shared(nodeName + "_safetyreg_client");
         this->regClient_ = this->regClientNode_->create_client<vehicle_interfaces::srv::SafetyReg>(safetyServiceName + "_Reg");
 
@@ -50,6 +54,7 @@ public:
         this->reqClient_ = this->reqClientNode_->create_client<vehicle_interfaces::srv::SafetyReq>(safetyServiceName + "_Req");
 
         this->nodeEnableF_ = true;
+        RCLCPP_INFO(this->get_logger(), "[SafetyNode] Constructed.");
     }
 
     bool setEmergency(std::string devID, float emP)// Return true if success
