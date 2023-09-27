@@ -121,8 +121,7 @@ private:
     // QoS Service Definition
     std::shared_ptr<rclcpp::Node> regClientNode_;// DevInfoReg service node
     rclcpp::Client<vehicle_interfaces::srv::DevInfoReg>::SharedPtr regClient_;// DevInfoReg service client
-    std::thread regClientTh_;
-    bool regClientStopF_;
+    std::thread waitTh_;
     std::mutex regClientLock_;
 
     // Device info
@@ -132,27 +131,31 @@ private:
     std::string ipv4Addr_;
     std::string ipv6Addr_;
     std::string macAddr_;
-    bool reqEnableF_;
 
     // Node enable
     std::atomic<bool> nodeEnableF_;
+    bool stopWaitF_;
+    bool enableFuncF_;
 
 private:
+    /**
+     * This function will be called only once and run under sub-thread while construction time.
+    */
     void _waitService()
     {
         try
         {
-            while (!this->_getHostname() && !this->regClientStopF_)
+            while (!this->_getHostname() && !this->stopWaitF_)
                 std::this_thread::sleep_for(1000ms);
-            while (!this->_getIPv4Addr() && !this->regClientStopF_)
+            while (!this->_getIPv4Addr() && !this->stopWaitF_)
                 std::this_thread::sleep_for(1000ms);
-            while (!this->_getMACAddr() && !this->regClientStopF_)
+            while (!this->_getMACAddr() && !this->stopWaitF_)
                 std::this_thread::sleep_for(1000ms);
 
-            vehicle_interfaces::ConnToService(this->regClient_, this->regClientStopF_, std::chrono::milliseconds(5000), -1);
-            this->reqEnableF_ = true;
+            vehicle_interfaces::ConnToService(this->regClient_, this->stopWaitF_, std::chrono::milliseconds(5000), -1);
+            this->enableFuncF_ = true;
 
-            while (!this->regDevInfo() && !this->regClientStopF_)
+            while (!this->regDevInfo() && !this->stopWaitF_)
                 std::this_thread::sleep_for(1000ms);
         }
         catch (...)
@@ -253,8 +256,8 @@ public:
         nodeName_(nodeName), 
         ifName_(devInterface), 
         nodeEnableF_(false), 
-        regClientStopF_(false), 
-        reqEnableF_(false)
+        stopWaitF_(false), 
+        enableFuncF_(false)
     {
         if (devInfoServiceName == "")
         {
@@ -266,20 +269,20 @@ public:
         this->regClient_ = this->regClientNode_->create_client<vehicle_interfaces::srv::DevInfoReg>(devInfoServiceName + "_Reg");
         this->nodeEnableF_ = true;
 
-        this->regClientTh_ = std::thread(&DevInfoNode::_waitService, this);
+        this->waitTh_ = std::thread(&DevInfoNode::_waitService, this);
         RCLCPP_INFO(this->get_logger(), "[DevInfoNode] Constructed.");
     }
 
     ~DevInfoNode()
     {
-        this->reqEnableF_ = false;
-        this->regClientStopF_ = true;
-        this->regClientTh_.join();
+        this->enableFuncF_ = false;
+        this->stopWaitF_ = true;
+        this->waitTh_.join();
     }
 
     bool regDevInfo()
     {
-        if (!this->nodeEnableF_ && !this->reqEnableF_)
+        if (!this->nodeEnableF_ || !this->enableFuncF_)
             return false;
         
         std::lock_guard<std::mutex> locker(this->regClientLock_);

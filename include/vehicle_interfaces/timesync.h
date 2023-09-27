@@ -32,25 +32,31 @@ namespace vehicle_interfaces
 class TimeSyncNode : virtual public rclcpp::Node
 {
 private:
+    // Time sync value
     rclcpp::Time initTime_;
     rclcpp::Time refTime_;
     rclcpp::Duration* correctDuration_;
     std::atomic<uint8_t> timeStampType_;
     
+    // Node and service
     std::shared_ptr<rclcpp::Node> clientNode_;
     rclcpp::Client<vehicle_interfaces::srv::TimeSync>::SharedPtr client_;
 
+    // Time sync parameters
     Timer* timeSyncTimer_;
-    std::chrono::duration<double, std::milli> timeSyncTimerInterval_;
+    std::chrono::duration<double, std::milli> timeSyncPeriod_;
     std::chrono::duration<double, std::nano> timeSyncAccuracy_;
+    std::chrono::duration<double, std::milli> retryDur_;
 
     std::atomic<bool> isSyncF_;
     std::mutex correctDurationLock_;
 
-    std::chrono::duration<double, std::milli> retryDur_;
 
     // Node enable
     std::atomic<bool> nodeEnableF_;
+    std::thread waitTh_;
+    bool stopWaitF_;
+    bool enableFuncF_;
 
 private:
     template <typename T>
@@ -65,6 +71,31 @@ private:
     {
         std::lock_guard<std::mutex> _lock(lock);
         return *ptr;
+    }
+
+    /**
+     * This function will be called only once and run under sub-thread while construction time.
+    */
+    void _waitService()
+    {
+        try
+        {
+            vehicle_interfaces::ConnToService(this->client_, this->stopWaitF_, std::chrono::milliseconds(5000), -1);
+            this->enableFuncF_ = true;
+
+            while (!this->syncTime() && !this->stopWaitF_)
+                std::this_thread::sleep_for(1000ms);
+            
+            if (this->timeSyncPeriod_ > 0s)
+            {
+                this->timeSyncTimer_ = new Timer(this->timeSyncPeriod_.count(), std::bind(&TimeSyncNode::_timerCallback, this));
+                this->timeSyncTimer_->start();
+            }
+        }
+        catch (...)
+        {
+            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_waitService] Caught unexpected errors.");
+        }
     }
 
     void _timerCallback()
@@ -89,44 +120,48 @@ private:
 
 public:
     TimeSyncNode(const std::string& nodeName, 
-                    const std::string& timeServiceName, 
-                    double syncInterval_ms, 
-                    double syncAccuracy_ms) : 
+                    const std::string& timeSyncServiceName, 
+                    double timeSyncPeriod_ms, 
+                    double timeSyncAccuracy_ms) : 
         rclcpp::Node(nodeName), 
-        nodeEnableF_(false)
+        nodeEnableF_(false), 
+        isSyncF_(false), 
+        stopWaitF_(false), 
+        enableFuncF_(false)
     {
-        if (timeServiceName == "")
+        if (timeSyncServiceName == "")
         {
             RCLCPP_WARN(this->get_logger(), "[TimeSyncNode] Ignored.");
             return;
         }
 
         this->clientNode_ = rclcpp::Node::make_shared(nodeName + "_timesync_client");
-        this->client_ = this->clientNode_->create_client<vehicle_interfaces::srv::TimeSync>(timeServiceName);
-        this->isSyncF_ = false;
+        this->client_ = this->clientNode_->create_client<vehicle_interfaces::srv::TimeSync>(timeSyncServiceName);
+
         this->initTime_ = rclcpp::Time();
         this->refTime_ = rclcpp::Time();
         this->correctDuration_ = new rclcpp::Duration(0, 0);
         this->timeStampType_ = vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
-        this->timeSyncTimerInterval_ = std::chrono::duration<double, std::milli>(syncInterval_ms);
-        this->timeSyncAccuracy_ = std::chrono::duration<double, std::nano>(syncAccuracy_ms * 1000000.0);
+        this->timeSyncPeriod_ = std::chrono::duration<double, std::milli>(timeSyncPeriod_ms);
+        this->timeSyncAccuracy_ = std::chrono::duration<double, std::nano>(timeSyncAccuracy_ms * 1000000.0);
 
-        this->retryDur_ = std::chrono::duration<double, std::milli>(5000.0);// First wait 5sec at most
+        this->retryDur_ = this->timeSyncPeriod_ * 0.1 > std::chrono::seconds(10) ? std::chrono::seconds(10) : this->timeSyncPeriod_ * 0.1;
         this->nodeEnableF_ = true;
 
-        this->_timerCallback();
-        this->retryDur_ = this->timeSyncTimerInterval_ * 0.1 > std::chrono::seconds(10) ? std::chrono::seconds(10) : this->timeSyncTimerInterval_ * 0.1;
-        if (syncInterval_ms > 0)
-        {
-            this->timeSyncTimer_ = new Timer(syncInterval_ms, std::bind(&TimeSyncNode::_timerCallback, this));
-            this->timeSyncTimer_->start();
-        }
+        this->waitTh_ = std::thread(&TimeSyncNode::_waitService, this);
         RCLCPP_INFO(this->get_logger(), "[TimeSyncNode] Constructed.");
+    }
+
+    ~TimeSyncNode()
+    {
+        this->enableFuncF_ = false;
+        this->stopWaitF_ = true;
+        this->waitTh_.join();
     }
 
     bool syncTime()
     {
-        if (!this->nodeEnableF_)
+        if (!this->nodeEnableF_ || !this->enableFuncF_)
             return false;
         try
         {
@@ -180,21 +215,21 @@ public:
 
     rclcpp::Time getTimestamp()
     {
-        if (!this->nodeEnableF_)
+        if (!this->nodeEnableF_ || !this->enableFuncF_)
             return this->get_clock()->now();
         return this->get_clock()->now() + this->_safeCall(this->correctDuration_, this->correctDurationLock_);
     }
 
     rclcpp::Duration getCorrectDuration()
     {
-        if (!this->nodeEnableF_)
+        if (!this->nodeEnableF_ || !this->enableFuncF_)
             return rclcpp::Duration(0, 0);
         return this->_safeCall(this->correctDuration_, this->correctDurationLock_);
     }
 
     inline uint8_t getTimestampType() const
     {
-        if (!this->nodeEnableF_)
+        if (!this->nodeEnableF_ || !this->enableFuncF_)
             return vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
         return this->timeStampType_;
     }
