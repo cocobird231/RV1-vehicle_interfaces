@@ -1,4 +1,4 @@
-// #ver=1.2
+// #ver=1.3
 #pragma once
 #include "rclcpp/rclcpp.hpp"
 
@@ -17,6 +17,7 @@ public:
     uint8_t id = 0;
     std::string devInfoService = "";// devinfo_0
     std::string devInterface = "eth0";
+    bool devMultiNode = false;
     std::string qosService = "";// qos_0
     std::string qosDirPath = "qos";
     std::string safetyService = "";// safety_0
@@ -32,6 +33,7 @@ private:
         this->get_parameter("id", this->id);
         this->get_parameter("devInfoService", this->devInfoService);
         this->get_parameter("devInterface", this->devInterface);
+        this->get_parameter("devMultiNode", this->devMultiNode);
         this->get_parameter("qosService", this->qosService);
         this->get_parameter("qosDirPath", this->qosDirPath);
         this->get_parameter("safetyService", this->safetyService);
@@ -48,6 +50,7 @@ public:
         this->declare_parameter<int>("id", this->id);
         this->declare_parameter<std::string>("devInfoService", this->devInfoService);
         this->declare_parameter<std::string>("devInterface", this->devInterface);
+        this->declare_parameter<bool>("devMultiNode", this->devMultiNode);
         this->declare_parameter<std::string>("qosService", this->qosService);
         this->declare_parameter<std::string>("qosDirPath", this->qosDirPath);
         this->declare_parameter<std::string>("safetyService", this->safetyService);

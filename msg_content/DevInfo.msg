@@ -12,3 +12,6 @@ string ipv4_addr
 
 # IPv6 address
 string ipv6_addr
+
+# Multi-node
+bool multi_node 0

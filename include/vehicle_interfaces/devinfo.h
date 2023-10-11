@@ -33,7 +33,7 @@ namespace vehicle_interfaces
  * AND: compare two DevInfo objects using AND operator, considering empty elements.
  * *_IGNORE_*: compare without specific element using specific operator.
 */
-enum CompDevInfoStrategy { OR, OR_IGNORE_HOSTNAME, AND, AND_IGNORE_HOSTNAME };
+enum CompDevInfoStrategy { OR, OR_IGNORE_HOSTNAME, AND, AND_IGNORE_HOSTNAME, SAME_HOST };
 
 inline bool CompDevInfo(const vehicle_interfaces::msg::DevInfo d1, const vehicle_interfaces::msg::DevInfo d2, CompDevInfoStrategy strategy = CompDevInfoStrategy::OR_IGNORE_HOSTNAME)
 {
@@ -69,6 +69,14 @@ inline bool CompDevInfo(const vehicle_interfaces::msg::DevInfo d1, const vehicle
                 (d1.ipv6_addr == d2.ipv6_addr);
         break;
     
+    case CompDevInfoStrategy::SAME_HOST:
+        return (d1.hostname == d2.hostname) && 
+                (d1.mac_addr == d2.mac_addr) && 
+                (d1.ipv4_addr == d2.ipv4_addr) && 
+                (d1.ipv6_addr == d2.ipv6_addr) && 
+                d1.multi_node && d2.multi_node;
+        break;
+    
     default:
         break;
     }
@@ -86,6 +94,7 @@ bool LoadDevInfoFromJSON(const fs::path& filePath, vehicle_interfaces::msg::DevI
         dInfo.mac_addr = json["mac_addr"];
         dInfo.ipv4_addr = json["ipv4_addr"];
         dInfo.ipv6_addr = json["ipv6_addr"];
+        dInfo.multi_node = json["multi_node"];
         return true;
     }
     catch(...)
@@ -104,6 +113,7 @@ bool DumpDevInfoToJSON(const fs::path& filePath, const vehicle_interfaces::msg::
         json["mac_addr"] = dInfo.mac_addr;
         json["ipv4_addr"] = dInfo.ipv4_addr;
         json["ipv6_addr"] = dInfo.ipv6_addr;
+        json["multi_node"] = dInfo.multi_node;
 
         std::ofstream outFile(filePath);
         outFile << json;
@@ -131,6 +141,7 @@ private:
     std::string ipv4Addr_;
     std::string ipv6Addr_;
     std::string macAddr_;
+    bool multiNodeF_;
 
     // Node enable
     std::atomic<bool> nodeEnableF_;
@@ -251,10 +262,11 @@ private:
     }
 
 public:
-    DevInfoNode(const std::string& nodeName, const std::string& devInfoServiceName, const std::string& devInterface) : 
+    DevInfoNode(const std::string& nodeName, const std::string& devInfoServiceName, const std::string& devInterface, bool devMultiNode) : 
         rclcpp::Node(nodeName), 
         nodeName_(nodeName), 
         ifName_(devInterface), 
+        multiNodeF_(devMultiNode), 
         nodeEnableF_(false), 
         stopWaitF_(false), 
         enableFuncF_(false)
@@ -309,6 +321,7 @@ public:
         msg.mac_addr = this->macAddr_;
         msg.ipv4_addr = this->ipv4Addr_;
         msg.ipv6_addr = this->ipv6Addr_;
+        msg.multi_node = this->multiNodeF_;
 
         auto request = std::make_shared<vehicle_interfaces::srv::DevInfoReg::Request>();
         request->dev_info = msg;
@@ -377,6 +390,9 @@ private:
                         continue;
                     
                     if (conflictKey == request->dev_info.node_name)// Overwrite
+                        continue;
+
+                    if (CompDevInfo(this->devInfoList_[conflictKey], request->dev_info, CompDevInfoStrategy::SAME_HOST))// Multi-node support
                         continue;
                     
                     if (this->storeStrategy_ == DevInfoStoreStrategy::CONFLICT_STRICT_OVERWRITE)// Strict overwrite

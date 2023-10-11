@@ -13,7 +13,7 @@ class VehicleServiceNode : public DevInfoNode, public QoSUpdateNode, public Safe
 {
 public:
     VehicleServiceNode(const std::shared_ptr<GenericParams>& gParams) : 
-        DevInfoNode(gParams->nodeName, gParams->devInfoService, gParams->devInterface), 
+        DevInfoNode(gParams->nodeName, gParams->devInfoService, gParams->devInterface, gParams->devMultiNode), 
         QoSUpdateNode(gParams->nodeName, gParams->qosService, gParams->qosDirPath), 
         SafetyNode(gParams->nodeName, gParams->safetyService), 
         TimeSyncNode(gParams->nodeName, gParams->timesyncService, gParams->timesyncPeriod_ms, gParams->timesyncAccuracy_ms), 

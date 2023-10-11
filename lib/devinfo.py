@@ -14,7 +14,7 @@ from vehicle_interfaces.utils import ConnToService
 
 
 class DevInfoNode(NodeAdaptor):
-    def __init__(self, nodeName : str, devInfoServiceName : str, devInterface : str):
+    def __init__(self, nodeName : str, devInfoServiceName : str, devInterface : str, devMultiNode : bool):
         NodeAdaptor.__init__(self, nodeName)
         self.__nodeEnableF = False
         if (devInfoServiceName == ''):
@@ -26,6 +26,7 @@ class DevInfoNode(NodeAdaptor):
         self.__ipv4Addr = ''
         self.__ipv6Addr = ''
         self.__macAddr = ''
+        self.__multiNodeF = devMultiNode
         self.__regClientStopF = False
         self.__reqEnableF = False
         
@@ -115,6 +116,7 @@ class DevInfoNode(NodeAdaptor):
         msg.mac_addr = self.__macAddr
         msg.ipv4_addr = self.__ipv4Addr
         msg.ipv6_addr = self.__ipv6Addr
+        msg.multi_node = self.__multiNodeF
 
         request = DevInfoReg.Request()
         request.dev_info = msg

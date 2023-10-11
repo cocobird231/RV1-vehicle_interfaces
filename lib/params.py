@@ -11,6 +11,7 @@ class GenericParams(Node):
         self.id = 0
         self.devInfoService = ''# devinfo_0
         self.devInterface = 'eth0'
+        self.devMultiNode = False
         self.qosService = ''# qos_0
         self.qosDirPath = 'qos'
         self.safetyService = ''# safety_0
@@ -23,6 +24,7 @@ class GenericParams(Node):
         self.declare_parameter('id', self.id)
         self.declare_parameter('devInfoService', self.devInfoService)
         self.declare_parameter('devInterface', self.devInterface)
+        self.declare_parameter('devMultiNode', self.devMultiNode)
         self.declare_parameter('qosService', self.qosService)
         self.declare_parameter('qosDirPath', self.qosDirPath)
         self.declare_parameter('safetyService', self.safetyService)
@@ -37,6 +39,7 @@ class GenericParams(Node):
         self.id = rclpy.parameter.parameter_value_to_python(self.get_parameter('id').get_parameter_value())
         self.devInfoService = rclpy.parameter.parameter_value_to_python(self.get_parameter('devInfoService').get_parameter_value())
         self.devInterface = rclpy.parameter.parameter_value_to_python(self.get_parameter('devInterface').get_parameter_value())
+        self.devMultiNode = rclpy.parameter.parameter_value_to_python(self.get_parameter('devMultiNode').get_parameter_value())
         self.qosService = rclpy.parameter.parameter_value_to_python(self.get_parameter('qosService').get_parameter_value())
         self.qosDirPath = rclpy.parameter.parameter_value_to_python(self.get_parameter('qosDirPath').get_parameter_value())
         self.safetyService = rclpy.parameter.parameter_value_to_python(self.get_parameter('safetyService').get_parameter_value())
