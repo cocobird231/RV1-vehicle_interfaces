@@ -33,8 +33,6 @@ class TimeSyncNode : virtual public rclcpp::Node
 {
 private:
     // Time sync value
-    rclcpp::Time initTime_;
-    rclcpp::Time refTime_;
     rclcpp::Duration* correctDuration_;
     std::atomic<uint8_t> timeStampType_;
     
@@ -105,16 +103,20 @@ private:
         {
             while (!this->syncTime() && (std::chrono::high_resolution_clock::now() - st < this->retryDur_))
                 std::this_thread::sleep_for(500ms);
-            if (!this->isSyncF_)
-                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_timerCallback] Time sync failed.");
-            else
-                RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_timerCallback] Time synced.");
-            RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_timerCallback] Correct duration: %f us.", 
-                        this->_safeCall(this->correctDuration_, this->correctDurationLock_).nanoseconds() / 1000.0);
+            // if (!this->isSyncF_)
+            //     RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_timerCallback] Time sync failed.");
+            // else
+            //     RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_timerCallback] Time synced.");
+            // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_timerCallback] Corrected offset: %f us.", 
+            //             this->_safeCall(this->correctDuration_, this->correctDurationLock_).nanoseconds() / 1000.0);
         }
         catch (const std::exception& e)
         {
-            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_timerCallback] Unexpected Error: %s", e.what());
+            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_timerCallback] Exception: %s.", e.what());
+        }
+        catch (...)
+        {
+            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_timerCallback] Caught unexpected errors.");
         }
     }
 
@@ -138,8 +140,6 @@ public:
         this->clientNode_ = rclcpp::Node::make_shared(nodeName + "_timesync_client");
         this->client_ = this->clientNode_->create_client<vehicle_interfaces::srv::TimeSync>(timeSyncServiceName);
 
-        this->initTime_ = rclcpp::Time();
-        this->refTime_ = rclcpp::Time();
         this->correctDuration_ = new rclcpp::Duration(0, 0);
         this->timeStampType_ = vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
         this->timeSyncPeriod_ = std::chrono::duration<double, std::milli>(timeSyncPeriod_ms);
@@ -180,36 +180,28 @@ public:
             {
                 rclcpp::Time nowTime = this->get_clock()->now();
                 auto response = result.get();
-                this->initTime_ = response->request_time;
-                if ((nowTime - this->initTime_).nanoseconds() >  this->timeSyncAccuracy_.count())// If travel time > accuracy, re-sync
+                rclcpp::Time sendTime = response->request_time;
+                if ((nowTime - sendTime).nanoseconds() >  this->timeSyncAccuracy_.count())// If travel time > accuracy, re-sync
                     return false;
                 
-                this->refTime_ = (rclcpp::Time)response->response_time - (nowTime - this->initTime_) * 0.5;
+                rclcpp::Time refTime = (rclcpp::Time)response->response_time - (nowTime - sendTime) * 0.5;
                 this->timeStampType_ = response->response_code;
                 if (this->timeStampType_ == vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC)
                     throw vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
                 
-                this->_safeSave(this->correctDuration_, this->refTime_ - this->initTime_, this->correctDurationLock_);
-                
-                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Response: %d.", this->timeStampType_.load());
-                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Local time: %f s.", this->initTime_.seconds());
-                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Reference time: %f s.", this->refTime_.seconds());
-                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Transport time: %f ms.", (nowTime - this->initTime_).nanoseconds() / 1000000.0);
-                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Correct duration: %f us.", this->correctDuration_->nanoseconds() / 1000.0);
+                this->_safeSave(this->correctDuration_, refTime - sendTime, this->correctDurationLock_);
                 this->isSyncF_ = true;
+                // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Time sync succeed.");
                 return true;
             }
-            else
-            {
-                RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::syncTime] Failed to call service.");
-                return false;
-            }
+            // RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::syncTime] Failed to call service.");
+            return false;
         }
-        catch(const std::exception& e)
+        catch(...)
         {
-            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::syncTime] Unexpected Error: %s", e.what());
+            RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::syncTime] Unexpected Error.");
             this->isSyncF_ = false;
-            throw e;
+            return false;
         }
     }
 
@@ -266,13 +258,22 @@ public:
         timeStampType_(vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC)
     {
         this->correctDuration_ = new rclcpp::Duration(0, 0);
+        RCLCPP_INFO(this->get_logger(), "[PseudoTimeSyncNode] Constructed.");
     }
 
     bool syncTime(rclcpp::Duration offset, uint8_t type)
     {
         std::lock_guard<std::mutex> locker(this->correctDurationLock_);
-        *this->correctDuration_ = offset;
-        this->timeStampType_ = type;
+        try
+        {
+            *this->correctDuration_ = offset;
+            this->timeStampType_ = type;
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
     }
 
     rclcpp::Time getTimestamp()
