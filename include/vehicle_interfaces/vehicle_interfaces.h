@@ -16,7 +16,7 @@ public:
         DevInfoNode(gParams->nodeName, gParams->devInfoService, gParams->devInterface, gParams->devMultiNode), 
         QoSUpdateNode(gParams->nodeName, gParams->qosService, gParams->qosDirPath), 
         SafetyNode(gParams->nodeName, gParams->safetyService), 
-        TimeSyncNode(gParams->nodeName, gParams->timesyncService, gParams->timesyncPeriod_ms, gParams->timesyncAccuracy_ms), 
+        TimeSyncNode(gParams->nodeName, gParams->timesyncService, gParams->timesyncPeriod_ms, gParams->timesyncAccuracy_ms, gParams->timesyncWaitService), 
         rclcpp::Node(gParams->nodeName) {}
 };
 

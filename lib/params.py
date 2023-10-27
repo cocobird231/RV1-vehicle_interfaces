@@ -1,4 +1,4 @@
-#ver=1.2
+#ver=1.4
 import rclpy
 from rclpy.node import Node
 
@@ -18,6 +18,7 @@ class GenericParams(Node):
         self.timesyncService = ''# timesync_0
         self.timesyncPeriod_ms = 10000.0
         self.timesyncAccuracy_ms = 2.0
+        self.timesyncWaitService = False
 
         self.declare_parameter('nodeName', self.nodeName)
         self.declare_parameter('ns', self.ns)
@@ -31,8 +32,9 @@ class GenericParams(Node):
         self.declare_parameter('timesyncService', self.timesyncService)
         self.declare_parameter('timesyncPeriod_ms', self.timesyncPeriod_ms)
         self.declare_parameter('timesyncAccuracy_ms', self.timesyncAccuracy_ms)
+        self.declare_parameter('timesyncWaitService', self.timesyncWaitService)
         self.__getParam()
-    
+
     def __getParam(self):
         self.nodeName = rclpy.parameter.parameter_value_to_python(self.get_parameter('nodeName').get_parameter_value())
         self.ns = rclpy.parameter.parameter_value_to_python(self.get_parameter('ns').get_parameter_value())
@@ -46,4 +48,4 @@ class GenericParams(Node):
         self.timesyncService = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncService').get_parameter_value())
         self.timesyncPeriod_ms = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncPeriod_ms').get_parameter_value())
         self.timesyncAccuracy_ms = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncAccuracy_ms').get_parameter_value())
-        # self.nodeName += '_' + str(self.id) + '_node'
+        self.timesyncWaitService = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncWaitService').get_parameter_value())

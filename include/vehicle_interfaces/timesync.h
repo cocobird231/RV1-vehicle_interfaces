@@ -55,6 +55,7 @@ private:
     std::thread waitTh_;
     bool stopWaitF_;
     bool enableFuncF_;
+    bool waitServiceF_;
 
 private:
     template <typename T>
@@ -84,6 +85,11 @@ private:
             while (!this->syncTime() && !this->stopWaitF_)
                 std::this_thread::sleep_for(1000ms);
             
+            if (this->isSyncF_)
+                RCLCPP_WARN(this->get_logger(), "[TimeSyncNode::_waitService] Time synchronized.");
+            else
+                RCLCPP_WARN(this->get_logger(), "[TimeSyncNode::_waitService] Time sync failed.");
+            
             if (this->timeSyncPeriod_ > 0s)
             {
                 this->timeSyncTimer_ = new Timer(this->timeSyncPeriod_.count(), std::bind(&TimeSyncNode::_timerCallback, this));
@@ -103,12 +109,10 @@ private:
         {
             while (!this->syncTime() && (std::chrono::high_resolution_clock::now() - st < this->retryDur_))
                 std::this_thread::sleep_for(500ms);
-            // if (!this->isSyncF_)
-            //     RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_timerCallback] Time sync failed.");
-            // else
-            //     RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_timerCallback] Time synced.");
-            // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::_timerCallback] Corrected offset: %f us.", 
-            //             this->_safeCall(this->correctDuration_, this->correctDurationLock_).nanoseconds() / 1000.0);
+            if (this->isSyncF_)
+                RCLCPP_WARN(this->get_logger(), "[TimeSyncNode::_timerCallback] Time synchronized.");
+            else
+                RCLCPP_WARN(this->get_logger(), "[TimeSyncNode::_timerCallback] Time sync failed.");
         }
         catch (const std::exception& e)
         {
@@ -124,8 +128,10 @@ public:
     TimeSyncNode(const std::string& nodeName, 
                     const std::string& timeSyncServiceName, 
                     double timeSyncPeriod_ms, 
-                    double timeSyncAccuracy_ms) : 
+                    double timeSyncAccuracy_ms, 
+                    bool timeSyncWaitService) : 
         rclcpp::Node(nodeName), 
+        waitServiceF_(timeSyncWaitService), 
         nodeEnableF_(false), 
         isSyncF_(false), 
         stopWaitF_(false), 
@@ -148,7 +154,14 @@ public:
         this->retryDur_ = this->timeSyncPeriod_ * 0.1 > std::chrono::seconds(10) ? std::chrono::seconds(10) : this->timeSyncPeriod_ * 0.1;
         this->nodeEnableF_ = true;
 
-        this->waitTh_ = std::thread(&TimeSyncNode::_waitService, this);
+        if (this->waitServiceF_)// Wait until first timesync done.
+        {
+            this->_waitService();
+        }
+        else// Wait and sync service at background
+        {
+            this->waitTh_ = std::thread(&TimeSyncNode::_waitService, this);
+        }
         RCLCPP_INFO(this->get_logger(), "[TimeSyncNode] Constructed.");
     }
 
@@ -156,7 +169,9 @@ public:
     {
         this->enableFuncF_ = false;
         this->stopWaitF_ = true;
-        this->waitTh_.join();
+
+        if (!this->waitServiceF_)
+            this->waitTh_.join();
     }
 
     bool syncTime()
@@ -183,12 +198,12 @@ public:
                 rclcpp::Time sendTime = response->request_time;
                 if ((nowTime - sendTime).nanoseconds() >  this->timeSyncAccuracy_.count())// If travel time > accuracy, re-sync
                     return false;
-                
+
                 rclcpp::Time refTime = (rclcpp::Time)response->response_time - (nowTime - sendTime) * 0.5;
                 this->timeStampType_ = response->response_code;
                 if (this->timeStampType_ == vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC)
                     throw vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
-                
+
                 this->_safeSave(this->correctDuration_, refTime - sendTime, this->correctDurationLock_);
                 this->isSyncF_ = true;
                 // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Time sync succeed.");

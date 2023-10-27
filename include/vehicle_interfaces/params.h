@@ -1,4 +1,4 @@
-// #ver=1.3
+// #ver=1.4
 #pragma once
 #include "rclcpp/rclcpp.hpp"
 
@@ -24,6 +24,7 @@ public:
     std::string timesyncService = "";// timesync_0
     double timesyncPeriod_ms = 10000.0;
     double timesyncAccuracy_ms = 2.0;
+    bool timesyncWaitService = false;
 
 private:
     void _getParams()
@@ -40,6 +41,7 @@ private:
         this->get_parameter("timesyncService", this->timesyncService);
         this->get_parameter("timesyncPeriod_ms", this->timesyncPeriod_ms);
         this->get_parameter("timesyncAccuracy_ms", this->timesyncAccuracy_ms);
+        this->get_parameter("timesyncWaitService", this->timesyncWaitService);
     }
 
 public:
@@ -57,6 +59,7 @@ public:
         this->declare_parameter<std::string>("timesyncService", this->timesyncService);
         this->declare_parameter<double>("timesyncPeriod_ms", this->timesyncPeriod_ms);
         this->declare_parameter<double>("timesyncAccuracy_ms", this->timesyncAccuracy_ms);
+        this->declare_parameter<bool>("timesyncWaitService", this->timesyncWaitService);
         this->_getParams();
     }
 };
