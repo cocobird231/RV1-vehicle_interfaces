@@ -49,6 +49,9 @@ private:
     std::atomic<bool> isSyncF_;
     std::mutex correctDurationLock_;
 
+    // Callback
+    std::function<void()> cbFunc_;
+    std::atomic<bool> isCbFuncF_;
 
     // Node enable
     std::atomic<bool> nodeEnableF_;
@@ -110,7 +113,11 @@ private:
             while (!this->syncTime() && (std::chrono::high_resolution_clock::now() - st < this->retryDur_))
                 std::this_thread::sleep_for(500ms);
             if (this->isSyncF_)
+            {
                 RCLCPP_WARN(this->get_logger(), "[TimeSyncNode::_timerCallback] Time synchronized.");
+                if (this->isCbFuncF_)
+                    this->cbFunc_();
+            }
             else
                 RCLCPP_WARN(this->get_logger(), "[TimeSyncNode::_timerCallback] Time sync failed.");
         }
@@ -134,6 +141,7 @@ public:
         waitServiceF_(timeSyncWaitService), 
         nodeEnableF_(false), 
         isSyncF_(false), 
+        isCbFuncF_(false), 
         stopWaitF_(false), 
         enableFuncF_(false)
     {
@@ -172,6 +180,14 @@ public:
 
         if (!this->waitServiceF_)
             this->waitTh_.join();
+    }
+
+    void addTimeSyncCallbackFunc(const std::function<void()>& func)
+    {
+        if (this->isCbFuncF_ || !this->nodeEnableF_)
+            return;
+        this->cbFunc_ = func;
+        this->isCbFuncF_ = true;
     }
 
     bool syncTime()
