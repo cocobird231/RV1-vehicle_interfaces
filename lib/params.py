@@ -36,16 +36,16 @@ class GenericParams(Node):
         self.__getParam()
 
     def __getParam(self):
-        self.nodeName = rclpy.parameter.parameter_value_to_python(self.get_parameter('nodeName').get_parameter_value())
-        self.ns = rclpy.parameter.parameter_value_to_python(self.get_parameter('ns').get_parameter_value())
-        self.id = rclpy.parameter.parameter_value_to_python(self.get_parameter('id').get_parameter_value())
-        self.devInfoService = rclpy.parameter.parameter_value_to_python(self.get_parameter('devInfoService').get_parameter_value())
-        self.devInterface = rclpy.parameter.parameter_value_to_python(self.get_parameter('devInterface').get_parameter_value())
-        self.devMultiNode = rclpy.parameter.parameter_value_to_python(self.get_parameter('devMultiNode').get_parameter_value())
-        self.qosService = rclpy.parameter.parameter_value_to_python(self.get_parameter('qosService').get_parameter_value())
-        self.qosDirPath = rclpy.parameter.parameter_value_to_python(self.get_parameter('qosDirPath').get_parameter_value())
-        self.safetyService = rclpy.parameter.parameter_value_to_python(self.get_parameter('safetyService').get_parameter_value())
-        self.timesyncService = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncService').get_parameter_value())
-        self.timesyncPeriod_ms = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncPeriod_ms').get_parameter_value())
-        self.timesyncAccuracy_ms = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncAccuracy_ms').get_parameter_value())
-        self.timesyncWaitService = rclpy.parameter.parameter_value_to_python(self.get_parameter('timesyncWaitService').get_parameter_value())
+        self.nodeName = self.get_parameter('nodeName').get_parameter_value().string_value
+        self.ns = self.get_parameter('ns').get_parameter_value().string_value
+        self.id = self.get_parameter('id').get_parameter_value().integer_value
+        self.devInfoService = self.get_parameter('devInfoService').get_parameter_value().string_value
+        self.devInterface = self.get_parameter('devInterface').get_parameter_value().string_value
+        self.devMultiNode = self.get_parameter('devMultiNode').get_parameter_value().bool_value
+        self.qosService = self.get_parameter('qosService').get_parameter_value().string_value
+        self.qosDirPath = self.get_parameter('qosDirPath').get_parameter_value().string_value
+        self.safetyService = self.get_parameter('safetyService').get_parameter_value().string_value
+        self.timesyncService = self.get_parameter('timesyncService').get_parameter_value().string_value
+        self.timesyncPeriod_ms = self.get_parameter('timesyncPeriod_ms').get_parameter_value().double_value
+        self.timesyncAccuracy_ms = self.get_parameter('timesyncAccuracy_ms').get_parameter_value().double_value
+        self.timesyncWaitService = self.get_parameter('timesyncWaitService').get_parameter_value().bool_value
