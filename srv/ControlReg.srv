@@ -1,0 +1,6 @@
+# Control Registration
+ControlInfo request
+
+---
+# response is true if value accepted, otherwise server ignore the request and response false
+bool response

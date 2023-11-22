@@ -1,0 +1,9 @@
+# Get service_name controller information, set to 'all' to get all controller info
+string service_name
+
+---
+# response is true if value accepted, otherwise server ignore the request and response false
+bool response
+
+# Response controller information
+ControlInfo[] control_info_vec

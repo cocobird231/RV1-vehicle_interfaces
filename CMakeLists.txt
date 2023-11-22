@@ -41,8 +41,11 @@ set(msg_files
 )
 
 set(msg_content_files
+  "msg_content/Chassis.msg"
+  "msg_content/ControlInfo.msg"
   "msg_content/DevInfo.msg"
   "msg_content/QosProfile.msg"
+  "msg_content/SteeringWheel.msg"
 )
 
 set(msg_geo_files
@@ -52,6 +55,10 @@ set(msg_geo_files
 )
 
 set(srv_files
+  "srv/ControlChassis.srv"
+  "srv/ControlReg.srv"
+  "srv/ControlReq.srv"
+  "srv/ControlSteeringWheel.srv"
   "srv/DevInfoReg.srv"
   "srv/DevInfoReq.srv"
   "srv/IDServer.srv"
