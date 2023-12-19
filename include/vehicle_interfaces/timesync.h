@@ -329,11 +329,13 @@ class TimeSyncServer : public rclcpp::Node
 private:
     rclcpp::Service<vehicle_interfaces::srv::TimeSync>::SharedPtr server_;
     bool isUTCSync;
+    std::mutex cbLock_;
 
 private:
     void _serviceCallback(const std::shared_ptr<vehicle_interfaces::srv::TimeSync::Request> request, 
                             std::shared_ptr<vehicle_interfaces::srv::TimeSync::Response> response)
     {
+        std::lock_guard<std::mutex> locker(this->cbLock_);// Test lock to prevent unexpected crashing.
         RCLCPP_INFO(this->get_logger(), "[TimeSyncServer::_serviceCallback] Request: %d", request->request_code);
         response->request_time = request->request_time;
         response->response_time = this->get_clock()->now();
@@ -355,6 +357,8 @@ public:
         this->isUTCSync = false;
         RCLCPP_INFO(this->get_logger(), "[TimeSyncServer] Constructed.");
     }
+
+    void setUTCSyncStatus(bool flag) { this->isUTCSync = flag; }
 };
 
 }// namespace vehicle_interfaces
