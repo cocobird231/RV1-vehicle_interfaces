@@ -93,6 +93,7 @@ class TimeSyncNode(NodeAdaptor):
             self.__waitService()
         else:
             self.__waitTh = threading.Thread(target=self.__waitService)
+            self.__waitTh.start()
         
         self.get_logger().info('[TimeSyncNode] Constructed.')
     
@@ -115,9 +116,9 @@ class TimeSyncNode(NodeAdaptor):
                 self.get_logger().warning("[TimeSyncNode::__timeSyncTimer_callback] Time sync failed.")
             
             if (self.__timeSyncPeriod_ms > 0):
-                # self.__timeSyncTimer = Timer(self.__timeSyncPeriod_ms, self.__timeSyncTimer_callback)
-                # self.__timeSyncTimer.start()
-                self.__timeSyncTimer = self.create_timer(self.__timeSyncPeriod_ms / 1000.0, self.__timeSyncTimer_callback)# TODO: freezed while wait_set.is_ready Error
+                self.__timeSyncTimer = Timer(self.__timeSyncPeriod_ms, self.__timeSyncTimer_callback)
+                self.__timeSyncTimer.start()
+                # self.__timeSyncTimer = self.create_timer(self.__timeSyncPeriod_ms / 1000.0, self.__timeSyncTimer_callback)# TODO: freezed while wait_set.is_ready Error
         except Exception as e:
             self.get_logger().error('[TimeSyncNode::__waitService] Caught unexpected errors.')
 
