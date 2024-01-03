@@ -11,6 +11,8 @@ vehicle_interfaces/Header header
 uint8 format_type
 int16 cvmat_type
 uint8 depth_unit_type
+float32 depth_valid_min
+float32 depth_valid_max
 uint16 width
 uint16 height
 uint8[] data
