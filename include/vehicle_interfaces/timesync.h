@@ -28,7 +28,7 @@ namespace vehicle_interfaces
  * The nodes can easily inherit the TimeSyncNode to get time sync supported. The getTimestamp() function returns the corrected timestamp, the 
  * getCorrectDuration() function returns the correction offset, and calling getTimestampType() function can get the timestamp type defined by 
  * Header under vehicle_interfaces. Manually process time sync is possible by calling syncTime().
-*/
+ */
 class TimeSyncNode : virtual public rclcpp::Node
 {
 private:

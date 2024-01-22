@@ -44,6 +44,7 @@ set(msg_content_files
   "msg_content/Chassis.msg"
   "msg_content/ControlInfo.msg"
   "msg_content/DevInfo.msg"
+  "msg_content/SurroundEmergency.msg"
   "msg_content/QosProfile.msg"
   "msg_content/SteeringWheel.msg"
 )

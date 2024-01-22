@@ -1,12 +1,14 @@
-# Get device_id emergency percentage, return all emergencies if device_id set to "all"
+# Get device_id EmergencyScore.
+# If device_id set to "all", return all EmergencyScore.
+# If device_id set to "nearest", return nearest 8-direction scores.
 string device_id
 
 ---
-# response is true if value accepted, otherwise server ignore the request and response false
+# response is true if value accepted, otherwise server ignore the request and response false.
 bool response
 
-# Get device_id vector
-string[] device_ids
+# Return requested device_id. If device_id not found, the vector size will be 0.
+string[] device_id_vec
 
-# Get emergency_percentage vector corresponds to device_id vector
-float32[] emergency_percentages
+# Get a vector of EmergencyScore decided by request device_id. If device_id not found, the vector size will be 0.
+SurroundEmergency[] emergency_scores

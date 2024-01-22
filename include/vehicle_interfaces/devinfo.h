@@ -296,12 +296,12 @@ public:
     {
         if (!this->nodeEnableF_ || !this->enableFuncF_)
             return false;
-        
+
         std::lock_guard<std::mutex> locker(this->regClientLock_);
-        
+
         if ((this->ipv4Addr_.length() <= 0 && this->ipv6Addr_.length() <= 0) || this->macAddr_.length() <= 0 || this->hostname_.length() <= 0)
             return false;
-        
+
         // Add namespace into nodeName
         std::string nodeName = this->nodeName_;
         if (strlen(this->get_namespace()) > 0)// Namespace exists
@@ -367,7 +367,7 @@ private:
                         request->dev_info.hostname.c_str(), 
                         request->dev_info.ipv4_addr.c_str(), 
                         request->dev_info.mac_addr.c_str());// node[host] ipv4/mac
-            
+
             std::vector<std::string> conflictVec;
             for (const auto& [n, dInfo] : this->devInfoList_)
             {
@@ -388,13 +388,13 @@ private:
                 {
                     if (CompDevInfo(this->devInfoList_[conflictKey], request->dev_info, CompDevInfoStrategy::AND_IGNORE_HOSTNAME))// Same
                         continue;
-                    
+
                     if (conflictKey == request->dev_info.node_name)// Overwrite
                         continue;
 
                     if (CompDevInfo(this->devInfoList_[conflictKey], request->dev_info, CompDevInfoStrategy::SAME_HOST))// Multi-node support
                         continue;
-                    
+
                     if (this->storeStrategy_ == DevInfoStoreStrategy::CONFLICT_STRICT_OVERWRITE)// Strict overwrite
                     {
                         char cmdBuf[128];
@@ -408,7 +408,7 @@ private:
                         RCLCPP_WARN(this->get_logger(), "[DevInfoServer::_regServerCallback] Move conflict file %s to %s.", 
                                     (this->devInfoDirPath_ / (fn + ".json")).generic_string().c_str(), 
                                     (this->devInfoDirPath_ / (fn + ".json.conflict")).generic_string().c_str());
-                        
+
                         // Remove conflict DevInfo
                         this->devInfoList_.erase(conflictKey);
                         RCLCPP_WARN(this->get_logger(), "[DevInfoServer::_regServerCallback] Remove conflict element.");
@@ -508,15 +508,16 @@ public:
 
         this->reqServer_ = this->create_service<vehicle_interfaces::srv::DevInfoReq>(serviceName + "_Req", 
             std::bind(&DevInfoServer::_reqServerCallback, this, std::placeholders::_1, std::placeholders::_2));
-        
+
         RCLCPP_INFO(this->get_logger(), "[DevInfoServer] Constructed.");
-        
+
         this->printDevInfoList();
     }
 
     void printDevInfoList()
     {
         std::lock_guard<std::mutex> locker(this->devInfoListLock_);
+        printf("====Device Information List====\n");
         for (const auto& [n, dInfo] : this->devInfoList_)
         {
             printf("%s[%s]\t%s/%s\n", 
@@ -525,6 +526,7 @@ public:
                     dInfo.ipv4_addr.c_str(), 
                     dInfo.mac_addr.c_str());
         }
+        printf("===============================\n");
     }
 };
 

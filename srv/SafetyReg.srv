@@ -1,9 +1,9 @@
 # Passing device_id to safety server is necessary for control server to identify the place where emergency occurred
-string device_id
+string[] device_id_vec
 
-# emergency_percentage from 0 to 1 represents emergency level from low to high
-float32 emergency_percentage
+# Register EmergencyScore to safety server.
+SurroundEmergency[] emergency_scores
 
 ---
-# response is true if value accepted, otherwise server ignore the request and response false
+# response is true if value accepted, otherwise server ignore the request and response false.
 bool response
