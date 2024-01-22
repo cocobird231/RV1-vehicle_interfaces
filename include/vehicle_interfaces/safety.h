@@ -363,7 +363,7 @@ private:
         std::lock_guard<std::mutex> devEmMapLocker(this->devEmMapLock_);
 
         // Response
-        bool resF = false;
+        bool resF = true;
         std::vector<std::string> resDeviceVec;
         std::vector<vehicle_interfaces::msg::SurroundEmergency> resEmergeVec;
 
@@ -420,6 +420,7 @@ private:
                 {
                     rmList.push_back(request->device_id);
                     RCLCPP_INFO(this->get_logger(), "[SafetyServer::_reqServerCallback] Add to removal: %s", request->device_id.c_str());
+                    resF = false;
                 }
             }
 
@@ -428,19 +429,21 @@ private:
                 this->devEmMap_.erase(key);
                 RCLCPP_INFO(this->get_logger(), "[SafetyServer::_reqServerCallback] Removed element: %s", key.c_str());
             }
-            resF = true;
         }
         catch (const std::string& e)
         {
             RCLCPP_ERROR(this->get_logger(), "[SafetyServer::_reqServerCallback] %s: %s", e.c_str(), request->device_id.c_str());
+            resF = false;
         }
         catch (const std::exception& e)
         {
             RCLCPP_ERROR(this->get_logger(), "[SafetyServer::_reqServerCallback] %s", e.what());
+            resF = false;
         }
         catch (...)
         {
             RCLCPP_ERROR(this->get_logger(), "[SafetyServer::_reqServerCallback] Caught unknown exception.");
+            resF = false;
         }
         response->response = resF;
         response->device_id_vec = resDeviceVec;
