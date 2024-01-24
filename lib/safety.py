@@ -96,6 +96,34 @@ class SafetyNode(NodeAdaptor):
             return response.emergency_scores[-1][direction]
         return -1
 
+    def getEmergency(self, devID : str):
+        """Request emergency scores from SafetyServer with specific device ID.
+
+        Parameters
+        ----------
+        devID : `str`
+        Either node name or "nearest". Do not pass "all" to prevent unexpected result.
+
+        Returns
+        -------
+        outEmP : `float`
+        8-direction emergencies. Return `list()` if request failed.
+        """
+        if (not self.__nodeEnableF):
+            return list()
+        request = SafetyReq.Request()
+        request.device_id = devID
+        future = self.__reqClient.call_async(request)
+        rclpy.spin_until_future_complete(self.__reqClientNode, future, timeout_sec=0.02)
+        if (not future.done()):
+            self.get_logger().error('[SafetyNode.getEmergency] Failed to call service')
+            return list()
+
+        response = future.result()
+        if (response.response and len(response.device_id_vec) > 0):
+            return response.emergency_scores[-1]
+        return list()
+
     def getEmergencies(self):
         """Request all emergency scores from SafetyServer.
 

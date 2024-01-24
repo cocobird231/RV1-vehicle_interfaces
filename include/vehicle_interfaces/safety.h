@@ -278,6 +278,8 @@ private:
     {
         vehicle_interfaces::msg::SurroundEmergency emPs;// 8-direction emergency scores and lifetime.
         std::chrono::high_resolution_clock::time_point ts;// Timestamp.
+
+        _DeviceSurroundEmergency() { emPs.emergency_percentages.fill(-1.0); }
     } DeviceSurroundEmergency;
 
     enum DeviceSurroundEmergencyCombineStrategy { NEAREST };
