@@ -55,7 +55,7 @@ class SafetyNode(NodeAdaptor):
         request.emergency_scores.append(score)
 
         future = self.__regClient.call_async(request)
-        rclpy.spin_until_future_complete(self.__regClientNode, future, timeout_sec=0.02)
+        rclpy.spin_until_future_complete(self.__regClientNode, future, timeout_sec=0.2)
         if (not future.done()):
             self.get_logger().error('[SafetyNode.setEmergency] Failed to call service')
             return False
@@ -86,14 +86,14 @@ class SafetyNode(NodeAdaptor):
         request = SafetyReq.Request()
         request.device_id = devID
         future = self.__reqClient.call_async(request)
-        rclpy.spin_until_future_complete(self.__reqClientNode, future, timeout_sec=0.02)
+        rclpy.spin_until_future_complete(self.__reqClientNode, future, timeout_sec=0.2)
         if (not future.done()):
             self.get_logger().error('[SafetyNode.getEmergency] Failed to call service')
             return -1
 
         response = future.result()
         if (response.response and len(response.device_id_vec) > 0):
-            return response.emergency_scores[-1][direction]
+            return response.emergency_scores[-1].emergency_percentages[direction]
         return -1
 
     def getEmergency(self, devID : str):
@@ -114,14 +114,14 @@ class SafetyNode(NodeAdaptor):
         request = SafetyReq.Request()
         request.device_id = devID
         future = self.__reqClient.call_async(request)
-        rclpy.spin_until_future_complete(self.__reqClientNode, future, timeout_sec=0.02)
+        rclpy.spin_until_future_complete(self.__reqClientNode, future, timeout_sec=0.2)
         if (not future.done()):
             self.get_logger().error('[SafetyNode.getEmergency] Failed to call service')
             return list()
 
         response = future.result()
         if (response.response and len(response.device_id_vec) > 0):
-            return response.emergency_scores[-1]
+            return response.emergency_scores[-1].emergency_percentages
         return list()
 
     def getEmergencies(self):
@@ -138,7 +138,7 @@ class SafetyNode(NodeAdaptor):
         request = SafetyReq.Request()
         request.device_id = "all"
         future = self.__reqClient.call_async(request)
-        rclpy.spin_until_future_complete(self.__reqClientNode, future, timeout_sec=0.02)
+        rclpy.spin_until_future_complete(self.__reqClientNode, future, timeout_sec=0.2)
         if (not future.done()):
             self.get_logger().error('[SafetyNode.getEmergencies] Failed to call service')
             return dict()
