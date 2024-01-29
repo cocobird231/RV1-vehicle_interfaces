@@ -6,4 +6,4 @@ string service_name
 bool response
 
 # Response controller information
-ControlInfo[] control_info_vec
+ControllerInfo[] control_info_vec

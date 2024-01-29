@@ -106,8 +106,8 @@ class SafetyNode(NodeAdaptor):
 
         Returns
         -------
-        outEmP : `float`
-        8-direction emergencies. Return `list()` if request failed.
+        outEmP : `list()`
+        8-direction emergencies. Return empty list() if request failed.
         """
         if (not self.__nodeEnableF):
             return list()

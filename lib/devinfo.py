@@ -18,6 +18,7 @@ class DevInfoNode(NodeAdaptor):
         NodeAdaptor.__init__(self, nodeName)
         self.__nodeEnableF = False
         if (devInfoServiceName == ''):
+            self.get_logger().warning('[DevInfoNode] Ignored.')
             return
 
         self.__nodeName = nodeName

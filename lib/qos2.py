@@ -162,7 +162,7 @@ class QoSUpdateNode(NodeAdaptor):
         self.__qosTopicNameVec.add(fullName)
 
         if (self.__pubDict.get(fullName) is not None):
-            self.get_logger().warn('[QoSUpdateNode.createTrackingPublisher] Topic name exists in track list: %s' %fullName)
+            self.get_logger().warning('[QoSUpdateNode.createTrackingPublisher] Topic name exists in track list: %s' %fullName)
             return False
 
         # Load QoS profile

@@ -461,7 +461,7 @@ public:
         this->reqServer_ = this->create_service<vehicle_interfaces::srv::SafetyReq>(serviceName + "_Req", 
             std::bind(&SafetyServer::_reqServerCallback, this, std::placeholders::_1, std::placeholders::_2));
         
-        RCLCPP_INFO(this->get_logger(), "[SafetyReqServer] Constructed.");
+        RCLCPP_INFO(this->get_logger(), "[SafetyServer] Constructed.");
     }
 };
 

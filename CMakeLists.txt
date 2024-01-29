@@ -41,25 +41,30 @@ set(msg_files
 )
 
 set(msg_content_files
-  "msg_content/Chassis.msg"
-  "msg_content/ControlInfo.msg"
+  "msg_content/ChassisInfo.msg"
+  "msg_content/ControlChassis.msg"
+  "msg_content/ControllerInfo.msg"
+  "msg_content/ControlSteeringWheel.msg"
   "msg_content/DevInfo.msg"
-  "msg_content/SurroundEmergency.msg"
+  "msg_content/MappingData.msg"
+  "msg_content/MotorValueRange.msg"
   "msg_content/QosProfile.msg"
-  "msg_content/SteeringWheel.msg"
+  "msg_content/SurroundEmergency.msg"
 )
 
 set(msg_geo_files
   "msg_geo/Bbox2d.msg"
-  "msg_geo/Point2d.msg"
-  "msg_geo/Size2d.msg"
+  "msg_geo/Point2f.msg"
+  "msg_geo/Size2f.msg"
 )
 
 set(srv_files
-  "srv/ControlChassis.srv"
-  "srv/ControlReg.srv"
-  "srv/ControlReq.srv"
-  "srv/ControlSteeringWheel.srv"
+  "srv/ControlChassisReg.srv"
+  "srv/ControlChassisReq.srv"
+  "srv/ControllerInfoReg.srv"
+  "srv/ControllerInfoReq.srv"
+  "srv/ControlSteeringWheelReg.srv"
+  "srv/ControlSteeringWheelReq.srv"
   "srv/DevInfoReg.srv"
   "srv/DevInfoReq.srv"
   "srv/IDServer.srv"
