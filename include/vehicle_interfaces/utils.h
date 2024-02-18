@@ -1,16 +1,21 @@
 #pragma once
+
 #include <iostream>
 #include <memory>
+#include <cmath>
 
 #include <mutex>
 #include <atomic>
 #include <functional>
 #include <thread>
+#include <chrono>
 
 #include <string>
 #include <vector>
 #include <deque>
 #include <map>
+
+#include <nlohmann/json.hpp>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -157,6 +162,14 @@ void SpinNode(std::shared_ptr<rclcpp::Node> node, std::string threadName)
 	rclcpp::shutdown();
 }
 
+void SpinExecutor(rclcpp::executors::SingleThreadedExecutor* exec, std::string threadName, double delay_ms)
+{
+    std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(delay_ms));
+    std::cerr << threadName << " start..." << std::endl;
+    exec->spin();
+    std::cerr << threadName << " exit." << std::endl;
+}
+
 bool ConnToService(rclcpp::ClientBase::SharedPtr client, bool& stopF, std::chrono::milliseconds timeout = std::chrono::milliseconds(1000), int retry = 5)
 {
     printf("[ConnToService] Connect to service: %s (%d)\n", client->get_service_name(), retry);
@@ -278,6 +291,24 @@ fs::path GetCurrentPath()
         retStr.pop_back();
     printf("Found current path: %s\n", retStr.c_str());
     return retStr;
+}
+
+double LinearMapping1d(double value, double from_start, double from_end, double to_start, double to_end)
+{
+    double a = (to_end - to_start) / (from_end - from_start);
+    return a * (value - from_start) + to_start;
+}
+
+double GammaCorrection(double value, double gamma, double min_bound = 0, double max_bound = 1)
+{
+    if (value >= min_bound && value <= max_bound && max_bound > min_bound)
+    {
+        if (min_bound == 0 and max_bound == 1)
+            return std::pow(value, gamma);
+        double ratio = (value - min_bound) / (max_bound - min_bound);
+        return std::pow(value, gamma) * (max_bound - min_bound) + min_bound;
+    }
+    throw "Boundary value error.";
 }
 
 }
