@@ -1,3 +1,3 @@
-float32 min
-float32 max
-float32 init
+float64 min
+float64 max
+float64 init

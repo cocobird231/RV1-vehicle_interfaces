@@ -1,5 +1,5 @@
-# Input vector
-float32[] input_vec
+# Input vector.
+float64[] input_vec
 
-# Output vector
-float32[] output_vec
+# Output vector.
+float64[] output_vec

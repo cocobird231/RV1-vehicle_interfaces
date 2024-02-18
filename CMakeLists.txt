@@ -23,6 +23,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
+  "msg/Chassis.msg"
   "msg/Distance.msg"
   "msg/Environment.msg"
   "msg/GPS.msg"
@@ -36,6 +37,7 @@ set(msg_files
   "msg/MotorAxle.msg"
   "msg/MotorSteering.msg"
   "msg/QosUpdate.msg"
+  "msg/SteeringWheel.msg"
   "msg/UPS.msg"
   "msg/WheelState.msg"
 )
@@ -54,6 +56,7 @@ set(msg_content_files
 
 set(msg_geo_files
   "msg_geo/Bbox2d.msg"
+  "msg_geo/Point2d.msg"
   "msg_geo/Point2f.msg"
   "msg_geo/Size2f.msg"
 )
