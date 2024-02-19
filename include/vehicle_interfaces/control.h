@@ -272,9 +272,9 @@ private:
 
 public:
     Controller(const std::shared_ptr<vehicle_interfaces::GenericParams>& params, vehicle_interfaces::msg::ControllerInfo info) : 
-        vehicle_interfaces::PseudoTimeSyncNode("controller_" + info.service_name), 
-        vehicle_interfaces::QoSUpdateNode("controller_" + info.service_name, params->qosService, params->qosDirPath), 
-        rclcpp::Node("controller_" + info.service_name), 
+        vehicle_interfaces::PseudoTimeSyncNode(info.service_name + "_controller"), 
+        vehicle_interfaces::QoSUpdateNode(info.service_name + "_controller", params->qosService, params->qosDirPath), 
+        rclcpp::Node(info.service_name + "_controller"), 
         info_(info), 
         exec_(nullptr), 
         th_(nullptr), 
@@ -284,7 +284,7 @@ public:
         pubF_(false), 
         frameID_(0)
     {
-        this->nodeName_ = "controller_" + info.service_name;
+        this->nodeName_ = info.service_name + "_controller";
         this->serviceTimeout_ = std::chrono::duration<float, std::milli>(info.timeout_ms);
         this->pubF_ = (info.pub_type == vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_CONTROLLER) || 
                         (info.pub_type == vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_BOTH);
@@ -300,7 +300,7 @@ public:
                 this->controlChassisRegClient_ = this->serviceNode_->create_client<vehicle_interfaces::srv::ControlChassisReg>(info.service_name);
                 this->chassisRegTm_ = new vehicle_interfaces::Timer(info.period_ms, std::bind(&Controller::_controlChassisRegCbFunc, this));
                 if (this->pubF_)
-                    this->chassisPub_ = this->create_publisher<vehicle_interfaces::msg::Chassis>(this->nodeName_, 10);
+                    this->chassisPub_ = this->create_publisher<vehicle_interfaces::msg::Chassis>(info.service_name, 10);
                 this->chassisRegTm_->start();
             }
             else if (info.msg_type == vehicle_interfaces::msg::ControllerInfo::MSG_TYPE_STEERING_WHEEL)
@@ -308,7 +308,7 @@ public:
                 this->controlSteeringWheelRegClient_ = this->serviceNode_->create_client<vehicle_interfaces::srv::ControlSteeringWheelReg>(info.service_name);
                 this->steeringWheelRegTm_ = new vehicle_interfaces::Timer(info.period_ms, std::bind(&Controller::_controlSteeringWheelRegCbFunc, this));
                 if (this->pubF_)
-                    this->steeringWheelPub_ = this->create_publisher<vehicle_interfaces::msg::SteeringWheel>(this->nodeName_, 10);
+                    this->steeringWheelPub_ = this->create_publisher<vehicle_interfaces::msg::SteeringWheel>(info.service_name, 10);
                 this->steeringWheelRegTm_->start();
             }
             else
@@ -326,14 +326,14 @@ public:
                 this->controlChassisReqServer_ = this->serviceNode_->create_service<vehicle_interfaces::srv::ControlChassisReq>(info.service_name, 
                     std::bind(&Controller::_controlChassisReqCbFunc, this, std::placeholders::_1, std::placeholders::_2));
                 if (this->pubF_)
-                    this->chassisPub_ = this->create_publisher<vehicle_interfaces::msg::Chassis>(this->nodeName_, 10);
+                    this->chassisPub_ = this->create_publisher<vehicle_interfaces::msg::Chassis>(info.service_name, 10);
             }
             else if (info.msg_type == vehicle_interfaces::msg::ControllerInfo::MSG_TYPE_STEERING_WHEEL)
             {
                 this->controlSteeringWheelReqServer_ = this->serviceNode_->create_service<vehicle_interfaces::srv::ControlSteeringWheelReq>(info.service_name, 
                     std::bind(&Controller::_controlSteeringWheelReqCbFunc, this, std::placeholders::_1, std::placeholders::_2));
                 if (this->pubF_)
-                    this->steeringWheelPub_ = this->create_publisher<vehicle_interfaces::msg::SteeringWheel>(this->nodeName_, 10);
+                    this->steeringWheelPub_ = this->create_publisher<vehicle_interfaces::msg::SteeringWheel>(info.service_name, 10);
             }
             else
             {
@@ -344,13 +344,14 @@ public:
         {
             throw "[Controller] construct info.service_mode error.";
         }
-        this->exec_ = new rclcpp::executors::SingleThreadedExecutor();
-        this->exec_->add_node(this->serviceNode_);
-        this->th_ = new std::thread(vehicle_interfaces::SpinExecutor, this->exec_, this->nodeName_, 1000);
+        // TODO: Need to be tested.
+        // this->exec_ = new rclcpp::executors::SingleThreadedExecutor();
+        // this->exec_->add_node(this->serviceNode_);
+        // this->th_ = new std::thread(vehicle_interfaces::SpinExecutor, this->exec_, this->serviceNodeName_, 1000);
         this->enableF_ = true;
-        RCLCPP_INFO(this->get_logger(), "[Controller] Controller constructed: %s", this->nodeName_.c_str());
+        RCLCPP_INFO(this->get_logger(), "[Controller] Controller constructed: %s", this->serviceNodeName_.c_str());
         if (this->pubF_)
-            RCLCPP_INFO(this->get_logger(), "[Controller] Create publisher: %s", this->nodeName_.c_str());
+            RCLCPP_INFO(this->get_logger(), "[Controller] Create publisher: %s", this->serviceNodeName_.c_str());
     }
 
     ~Controller()
@@ -613,9 +614,9 @@ private:
 
 public:
     ControlServerController(const std::shared_ptr<vehicle_interfaces::GenericParams>& params, const vehicle_interfaces::msg::ControllerInfo& info) : 
-        vehicle_interfaces::PseudoTimeSyncNode("controlserver_" + info.service_name), 
-        vehicle_interfaces::QoSUpdateNode("controlserver_" + info.service_name, params->qosService, params->qosDirPath), 
-        rclcpp::Node("controlserver_" + info.service_name), 
+        vehicle_interfaces::PseudoTimeSyncNode(info.service_name + "_controlserver"), 
+        vehicle_interfaces::QoSUpdateNode(info.service_name + "_controlserver", params->qosService, params->qosDirPath), 
+        rclcpp::Node(info.service_name + "_controlserver"), 
         info_(info), 
         exec_(nullptr), 
         th_(nullptr), 
@@ -626,7 +627,7 @@ public:
         frameID_(0), 
         cvtFuncF_(false)
     {
-        this->nodeName_ = "controlserver_" + info.service_name;
+        this->nodeName_ = info.service_name + "_controlserver";
         this->serviceTimeout_ = std::chrono::duration<float, std::milli>(info.timeout_ms);
         this->pubF_ = (info.pub_type == vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_CONTROLSERVER) || 
                         (info.pub_type == vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_BOTH);
@@ -642,14 +643,14 @@ public:
                 this->controlChassisRegServer_ = this->serviceNode_->create_service<vehicle_interfaces::srv::ControlChassisReg>(info.service_name, 
                     std::bind(&ControlServerController::_controlChassisRegCbFunc, this, std::placeholders::_1, std::placeholders::_2));
                 if (this->pubF_)
-                    this->chassisPub_ = this->create_publisher<vehicle_interfaces::msg::Chassis>(this->nodeName_, 10);
+                    this->chassisPub_ = this->create_publisher<vehicle_interfaces::msg::Chassis>(info.service_name, 10);
             }
             else if (info.msg_type == vehicle_interfaces::msg::ControllerInfo::MSG_TYPE_STEERING_WHEEL)
             {
                 this->controlSteeringWheelRegServer_ = this->serviceNode_->create_service<vehicle_interfaces::srv::ControlSteeringWheelReg>(info.service_name, 
                     std::bind(&ControlServerController::_controlSteeringWheelRegCbFunc, this, std::placeholders::_1, std::placeholders::_2));
                 if (this->pubF_)
-                    this->steeringWheelPub_ = this->create_publisher<vehicle_interfaces::msg::SteeringWheel>(this->nodeName_, 10);
+                    this->steeringWheelPub_ = this->create_publisher<vehicle_interfaces::msg::SteeringWheel>(info.service_name, 10);
             }
             else
             {
@@ -659,14 +660,14 @@ public:
         // Controller set to server, ControlServerController set to client.
         else if (info.service_mode == vehicle_interfaces::msg::ControllerInfo::SERVICE_MODE_SERVER)
         {
-            this->serviceNodeName_ = this->nodeName_ + "_server";
+            this->serviceNodeName_ = this->nodeName_ + "_client";
             this->serviceNode_ = rclcpp::Node::make_shared(this->serviceNodeName_);
             if (info.msg_type == vehicle_interfaces::msg::ControllerInfo::MSG_TYPE_CHASSIS)
             {
                 this->controlChassisReqClient_ = this->serviceNode_->create_client<vehicle_interfaces::srv::ControlChassisReq>(info.service_name);
                 this->chassisReqTm_ = new vehicle_interfaces::Timer(info.period_ms, std::bind(&ControlServerController::_controlChassisReqCbFunc, this));
                 if (this->pubF_)
-                    this->chassisPub_ = this->create_publisher<vehicle_interfaces::msg::Chassis>(this->nodeName_, 10);
+                    this->chassisPub_ = this->create_publisher<vehicle_interfaces::msg::Chassis>(info.service_name, 10);
                 this->chassisReqTm_->start();
             }
             else if (info.msg_type == vehicle_interfaces::msg::ControllerInfo::MSG_TYPE_STEERING_WHEEL)
@@ -674,7 +675,7 @@ public:
                 this->controlSteeringWheelReqClient_ = this->serviceNode_->create_client<vehicle_interfaces::srv::ControlSteeringWheelReq>(info.service_name);
                 this->steeringWheelReqTm_ = new vehicle_interfaces::Timer(info.period_ms, std::bind(&ControlServerController::_controlSteeringWheelReqCbFunc, this));
                 if (this->pubF_)
-                    this->steeringWheelPub_ = this->create_publisher<vehicle_interfaces::msg::SteeringWheel>(this->nodeName_, 10);
+                    this->steeringWheelPub_ = this->create_publisher<vehicle_interfaces::msg::SteeringWheel>(info.service_name, 10);
                 this->steeringWheelReqTm_->start();
             }
             else
@@ -686,13 +687,14 @@ public:
         {
             throw "[ControlServerController] construct info.service_mode error.";
         }
-        this->exec_ = new rclcpp::executors::SingleThreadedExecutor();
-        this->exec_->add_node(this->serviceNode_);
-        this->th_ = new std::thread(vehicle_interfaces::SpinExecutor, this->exec_, this->nodeName_, 1000);
+        // TODO: Need to be tested.
+        // this->exec_ = new rclcpp::executors::SingleThreadedExecutor();
+        // this->exec_->add_node(this->serviceNode_);
+        // this->th_ = new std::thread(vehicle_interfaces::SpinExecutor, this->exec_, this->serviceNodeName_, 1000);
         this->enableF_ = true;
-        RCLCPP_INFO(this->get_logger(), "[ControlServerController] Controller constructed: %s", this->nodeName_.c_str());
+        RCLCPP_INFO(this->get_logger(), "[ControlServerController] Controller constructed: %s", this->serviceNodeName_.c_str());
         if (this->pubF_)
-            RCLCPP_INFO(this->get_logger(), "[ControlServerController] Create publisher: %s", this->nodeName_.c_str());
+            RCLCPP_INFO(this->get_logger(), "[ControlServerController] Create publisher: %s", this->serviceNodeName_.c_str());
     }
 
     ~ControlServerController()
