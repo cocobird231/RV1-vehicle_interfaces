@@ -4,10 +4,15 @@
 #include <nlohmann/json.hpp>
 
 #include "rclcpp/rclcpp.hpp"
-/** msg_content*/
+/** msg */
+#include "vehicle_interfaces/msg/chassis.hpp"
+#include "vehicle_interfaces/msg/steering_wheel.hpp"
+/** msg_content */
+#include "vehicle_interfaces/msg/control_chassis.hpp"
+#include "vehicle_interfaces/msg/control_steering_wheel.hpp"
 #include "vehicle_interfaces/msg/mapping_data.hpp"
 #include "vehicle_interfaces/msg/motor_value_range.hpp"
-/** msg_geo*/
+/** msg_geo */
 #include "vehicle_interfaces/msg/bbox2d.hpp"
 #include "vehicle_interfaces/msg/point2d.hpp"
 #include "vehicle_interfaces/msg/point2f.hpp"
@@ -104,7 +109,7 @@ public:
     }
 };
 
-}
+}// namespace msg_to_json
 
 namespace json_to_msg
 {
@@ -199,6 +204,105 @@ public:
     }
 };
 
-}
+}// namespace json_to_msg
+
+namespace msg_to_msg
+{
+
+class ControlChassis
+{
+public:
+    /**
+     * Convert vehicle_interfaces::msg::Chassis to vehicle_interfaces::msg::ControlChassis.
+     * @param src vehicle_interfaces::msg::Chassis
+     * @return vehicle_interfaces::msg::ControlChassis
+     */
+    static vehicle_interfaces::msg::ControlChassis convert(const vehicle_interfaces::msg::Chassis& src)
+    {
+        vehicle_interfaces::msg::ControlChassis ret;
+        ret.unit_type = src.unit_type;
+        ret.drive_motor = src.drive_motor;
+        ret.steering_motor = src.steering_motor;
+        ret.brake_motor = src.brake_motor;
+        ret.parking_signal = src.parking_signal;
+        ret.controller_frame_id = src.controller_frame_id;
+        return ret;
+    }
+};
+
+class Chassis
+{
+public:
+    /**
+     * Convert vehicle_interfaces::msg::ControlChassis to vehicle_interfaces::msg::Chassis.
+     * @param src vehicle_interfaces::msg::ControlChassis
+     * @return vehicle_interfaces::msg::Chassis
+     * @note The returned message will not be completed because the original message has more fields than the target message.
+     */
+    static vehicle_interfaces::msg::Chassis convert(const vehicle_interfaces::msg::ControlChassis& src)
+    {
+        vehicle_interfaces::msg::Chassis ret;
+        ret.unit_type = src.unit_type;
+        ret.drive_motor = src.drive_motor;
+        ret.steering_motor = src.steering_motor;
+        ret.brake_motor = src.brake_motor;
+        ret.parking_signal = src.parking_signal;
+        ret.controller_frame_id = src.controller_frame_id;
+        return ret;
+    }
+};
+
+class ControlSteeringWheel
+{
+public:
+    /**
+     * Convert vehicle_interfaces::msg::SteeringWheel to vehicle_interfaces::msg::ControlSteeringWheel.
+     * @param src vehicle_interfaces::msg::SteeringWheel
+     * @return vehicle_interfaces::msg::ControlSteeringWheel
+     */
+    static vehicle_interfaces::msg::ControlSteeringWheel convert(const vehicle_interfaces::msg::SteeringWheel& src)
+    {
+        vehicle_interfaces::msg::ControlSteeringWheel ret;
+        ret.gear = src.gear;
+        ret.steering = src.steering;
+        ret.pedal_throttle = src.pedal_throttle;
+        ret.pedal_brake = src.pedal_brake;
+        ret.pedal_clutch = src.pedal_clutch;
+        ret.func_0 = src.func_0;
+        ret.func_1 = src.func_1;
+        ret.func_2 = src.func_2;
+        ret.func_3 = src.func_3;
+        ret.controller_frame_id = src.controller_frame_id;
+        return ret;
+    }
+};
+
+class SteeringWheel
+{
+public:
+    /**
+     * Convert vehicle_interfaces::msg::ControlSteeringWheel to vehicle_interfaces::msg::SteeringWheel.
+     * @param src vehicle_interfaces::msg::ControlSteeringWheel
+     * @return vehicle_interfaces::msg::SteeringWheel
+     * @note The returned message will not be completed because the original message has more fields than the target message.
+     */
+    static vehicle_interfaces::msg::SteeringWheel convert(const vehicle_interfaces::msg::ControlSteeringWheel& src)
+    {
+        vehicle_interfaces::msg::SteeringWheel ret;
+        ret.gear = src.gear;
+        ret.steering = src.steering;
+        ret.pedal_throttle = src.pedal_throttle;
+        ret.pedal_brake = src.pedal_brake;
+        ret.pedal_clutch = src.pedal_clutch;
+        ret.func_0 = src.func_0;
+        ret.func_1 = src.func_1;
+        ret.func_2 = src.func_2;
+        ret.func_3 = src.func_3;
+        ret.controller_frame_id = src.controller_frame_id;
+        return ret;
+    }
+};
+
+}// namespace msg_to_msg
 
 }

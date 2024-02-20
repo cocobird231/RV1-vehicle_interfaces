@@ -11,3 +11,6 @@ float32[] brake_motor
 
 # The number of elements and orders of parking_signal should be equal to drive_motor. Set element to true to enable the parking signal.
 bool[] parking_signal
+
+# Controller frame id.
+uint64 controller_frame_id

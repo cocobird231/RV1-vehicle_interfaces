@@ -19,3 +19,6 @@ uint8 func_0 0
 uint8 func_1 0
 int8 func_2 0
 int8 func_3 0
+
+# Controller frame id.
+uint64 controller_frame_id
