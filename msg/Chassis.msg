@@ -6,9 +6,9 @@ uint8 unit_type 0
 
 # The order of following array related to the motor ID of drive, steering and brake motor respectively.
 # If the number of elements of each array does not fit the ChassisInfo of the control server, the message will be ignored. 
-float32[] drive_motor
-float32[] steering_motor
-float32[] brake_motor
+float64[] drive_motor
+float64[] steering_motor
+float64[] brake_motor
 
 # The number of elements and orders of parking_signal should be equal to drive_motor. Set element to true to enable the parking signal.
 bool[] parking_signal

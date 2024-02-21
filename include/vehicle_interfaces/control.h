@@ -473,6 +473,7 @@ public:
         std::lock_guard<std::mutex> locker(this->msgLock_);
         outSignal = this->msg_;
         outTimestamp = this->dataTs_;
+        return true;
     }
 };
 
