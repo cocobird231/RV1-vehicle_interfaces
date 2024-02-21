@@ -303,10 +303,10 @@ double GammaCorrection(double value, double gamma, double min_bound = 0, double 
 {
     if (value >= min_bound && value <= max_bound && max_bound > min_bound)
     {
-        if (min_bound == 0 and max_bound == 1)
+        if (min_bound == 0 && max_bound == 1)
             return std::pow(value, gamma);
         double ratio = (value - min_bound) / (max_bound - min_bound);
-        return std::pow(value, gamma) * (max_bound - min_bound) + min_bound;
+        return std::pow(ratio, gamma) * (max_bound - min_bound) + min_bound;
     }
     throw "Boundary value error.";
 }
