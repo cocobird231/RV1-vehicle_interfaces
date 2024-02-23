@@ -1,0 +1,9 @@
+# Control Server control signal
+ControlServer request
+
+---
+# response true if value accepted, otherwise server ignore the request and response false.
+bool response
+
+# Response current Control Server status.
+ControlServer status
