@@ -2,6 +2,7 @@
 
 ######## Definitions ########
 
+
 # Controller behavior.
 
 ## The action of controller behavior.
@@ -11,6 +12,7 @@
 uint8 CONTROLLER_ACTION_NONE = 0
 uint8 CONTROLLER_ACTION_SELECT = 1
 uint8 CONTROLLER_ACTION_REMOVE = 2
+
 
 # Control server behavior.
 
@@ -34,7 +36,17 @@ uint8 TIMER_STATUS_START = 2
 ### If value <= 0, the set period action will be ignored at specific timer.
 
 
+# Chassis settings.
+
+## The action of chassis settings.
+### NONE: No action for chassis settings.
+### SET: Set provided ChassisInfo as new chassis settings.
+uint8 CHASSIS_ACTION_NONE = 0
+uint8 CHASSIS_ACTION_SET = 1
+
+
 ######## Variables ########
+
 
 # Controller behavior.
 
@@ -43,6 +55,7 @@ uint8 controller_action 0
 
 ## The the service name of controller which to be selected as main controller or remove from list.
 string controller_service_name
+
 
 # Control Server behavior.
 
@@ -78,3 +91,12 @@ uint8 server_publish_timer_status 0
 
 ## The period of publish in _ms. Server will ignore this if value <= 0.
 float64 server_publish_period_ms 0
+
+
+# Chassis settings.
+
+## Set to CHASSIS_ACTION_XXX.
+uint8 chassis_action 0
+
+## The information of chassis settings.
+ChassisInfo chassis_info
