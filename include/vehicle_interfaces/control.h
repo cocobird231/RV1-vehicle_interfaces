@@ -301,6 +301,7 @@ private:
     std::atomic<uint64_t> pubFrameId_;// The counter of control signal published.
     std::mutex pubMsgLock_;// Lock pubMsg_.
 
+    // Convert function for ControlSteeringWheel signal to ControlChassis signal.
     std::function<bool(const vehicle_interfaces::msg::ControlSteeringWheel&, vehicle_interfaces::msg::ControlChassis&)> cvtFunc_;
     std::atomic<bool> cvtFuncF_;
 
@@ -308,6 +309,9 @@ private:
     std::atomic<uint64_t> frameID_;// The counter of service req/res.
     std::chrono::high_resolution_clock::time_point dataTs_;// Timestamp of grabbed control signal.
     std::mutex msgLock_;// Lock msg_.
+
+    std::function<void(const vehicle_interfaces::msg::ControllerInfo&)> interruptFunc_;// Function called when the controller raises interrupt signal.
+    std::atomic<bool> interruptFuncF_;// Whether interruptFunc_ is available.
 
     std::atomic<bool> availableF_;// Whether the controller is available.
     std::atomic<bool> exitF_;
@@ -378,6 +382,7 @@ public:
         pubTm_(nullptr), 
         pubFrameId_(0), 
         cvtFuncF_(false), 
+        interruptFuncF_(false), 
         availableF_(false), 
         exitF_(false)
     {
@@ -452,6 +457,17 @@ public:
     }
 
     /**
+     * Set interrupt function for Controller interrupt signal raised.
+     * @param[in] interruptFunc Interrupt function.
+     * @note This function can be ignored if the controller does not support interrupt signal.
+     */
+    void setInterruptFunc(const std::function<void(const vehicle_interfaces::msg::ControllerInfo&)>& interruptFunc)
+    {
+        this->interruptFunc_ = interruptFunc;
+        this->interruptFuncF_ = true;
+    }
+
+    /**
      * Get ControllerInfo for this ControllerClient.
      * @return ControllerInfo message.
      */
@@ -504,10 +520,14 @@ void ControllerClient<
         {
             this->_safeSave(&this->pubMsg_, response->value, this->pubMsgLock_);// Save control signal to be published.
 
-            std::lock_guard<std::mutex> locker(this->msgLock_);
+            std::unique_lock<std::mutex> locker(this->msgLock_, std::defer_lock);
+            locker.lock();
             this->msg_ = response->value;
             this->frameID_ = response->frame_id;
             this->dataTs_ = std::chrono::high_resolution_clock::now();
+            locker.unlock();
+            if (this->interruptFuncF_ && response->value.controller_interrupt)
+                this->interruptFunc_(this->cInfo_);
         }
     }
 }
@@ -528,10 +548,14 @@ void ControllerClient<
     auto tmp = vehicle_interfaces::msg_to_msg::ControlChassis::convert(*msg);
     this->_safeSave(&this->pubMsg_, tmp, this->pubMsgLock_);// Save control signal to be published.
 
-    std::lock_guard<std::mutex> locker(this->msgLock_);
+    std::unique_lock<std::mutex> locker(this->msgLock_, std::defer_lock);
+    locker.lock();
     this->msg_ = tmp;
     this->frameID_ = msg->header.frame_id;
     this->dataTs_ = std::chrono::high_resolution_clock::now();
+    locker.unlock();
+    if (this->interruptFuncF_ && tmp.controller_interrupt)
+        this->interruptFunc_(this->cInfo_);
 }
 
 template<>
@@ -583,10 +607,14 @@ void ControllerClient<
             vehicle_interfaces::msg::ControlChassis tmp;
             if (!this->cvtFunc_(response->value, tmp))
                 return;
-            std::lock_guard<std::mutex> locker(this->msgLock_);
+            std::unique_lock<std::mutex> locker(this->msgLock_, std::defer_lock);
+            locker.lock();
             this->msg_ = tmp;
             this->frameID_ = response->frame_id;
             this->dataTs_ = std::chrono::high_resolution_clock::now();
+            locker.unlock();
+            if (this->interruptFuncF_ && tmp.controller_interrupt)
+                this->interruptFunc_(this->cInfo_);
         }
     }
 }
@@ -613,10 +641,14 @@ void ControllerClient<
     vehicle_interfaces::msg::ControlChassis tmp;
     if (!this->cvtFunc_(cvt, tmp))
         return;
-    std::lock_guard<std::mutex> locker(this->msgLock_);
+    std::unique_lock<std::mutex> locker(this->msgLock_, std::defer_lock);
+    locker.lock();
     this->msg_ = tmp;
     this->frameID_ = msg->controller_frame_id;
     this->dataTs_ = std::chrono::high_resolution_clock::now();
+    locker.unlock();
+    if (this->interruptFuncF_ && tmp.controller_interrupt)
+        this->interruptFunc_(this->cInfo_);
 }
 
 template<>

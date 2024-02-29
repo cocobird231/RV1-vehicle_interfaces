@@ -14,3 +14,6 @@ bool[] parking_signal
 
 # Controller frame id.
 uint64 controller_frame_id
+
+# Controller interruption.
+bool controller_interrupt 0

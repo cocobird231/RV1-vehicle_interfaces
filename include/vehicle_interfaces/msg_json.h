@@ -226,6 +226,7 @@ public:
         ret.brake_motor = src.brake_motor;
         ret.parking_signal = src.parking_signal;
         ret.controller_frame_id = src.controller_frame_id;
+        ret.controller_interrupt = src.controller_interrupt;
         return ret;
     }
 };
@@ -248,6 +249,7 @@ public:
         ret.brake_motor = src.brake_motor;
         ret.parking_signal = src.parking_signal;
         ret.controller_frame_id = src.controller_frame_id;
+        ret.controller_interrupt = src.controller_interrupt;
         return ret;
     }
 };
@@ -273,6 +275,7 @@ public:
         ret.func_2 = src.func_2;
         ret.func_3 = src.func_3;
         ret.controller_frame_id = src.controller_frame_id;
+        ret.controller_interrupt = src.controller_interrupt;
         return ret;
     }
 };
@@ -299,6 +302,7 @@ public:
         ret.func_2 = src.func_2;
         ret.func_3 = src.func_3;
         ret.controller_frame_id = src.controller_frame_id;
+        ret.controller_interrupt = src.controller_interrupt;
         return ret;
     }
 };

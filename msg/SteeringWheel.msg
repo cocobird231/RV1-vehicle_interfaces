@@ -25,5 +25,8 @@ int8 func_3 0
 # Controller frame id.
 uint64 controller_frame_id
 
+# Controller interruption.
+bool controller_interrupt 0
+
 # Controller name.
 string controller_name
