@@ -49,10 +49,13 @@ set(msg_content_files
   "msg_content/ControlServer.msg"
   "msg_content/ControlSteeringWheel.msg"
   "msg_content/DevInfo.msg"
+  "msg_content/InteractiveNode.msg"
+  "msg_content/InteractiveNodeMasterPrivilege.msg"
   "msg_content/MappingData.msg"
   "msg_content/MotorValueRange.msg"
   "msg_content/QosProfile.msg"
   "msg_content/SurroundEmergency.msg"
+  "msg_content/TopicDeviceInfo.msg"
 )
 
 set(msg_geo_files
@@ -73,11 +76,14 @@ set(srv_files
   "srv/DevInfoReg.srv"
   "srv/DevInfoReq.srv"
   "srv/IDServer.srv"
+  "srv/InteractiveNode.srv"
+  "srv/InteractiveNodeReq.srv"
   "srv/QosReg.srv"
   "srv/QosReq.srv"
   "srv/SafetyReg.srv"
   "srv/SafetyReq.srv"
   "srv/TimeSync.srv"
+  "srv/TopicDeviceInfoReg.srv"
 )
 
 ## Build

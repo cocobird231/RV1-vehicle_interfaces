@@ -1,0 +1,20 @@
+# Set node interaction.
+
+# Request device id.
+string device_id
+
+# Interactive node signals.
+InteractiveNode interactive_node
+
+# The function name could be variant for different nodes, and user should define the function name for each node.
+string node_command_name
+
+# The arguments could be variant for different nodes, and user should define the arguments for each node.
+string[] node_command_args
+
+---
+# response is true if value accepted, otherwise server ignore the request and response false.
+bool response
+
+# Describes the reason of the response.
+string reason

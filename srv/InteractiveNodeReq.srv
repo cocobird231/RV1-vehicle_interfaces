@@ -1,0 +1,11 @@
+# Request node interaction.
+
+# Request device id.
+string device_id
+
+---
+# response is true if value accepted, otherwise server ignore the request and response false.
+bool response
+
+# Response the status of interactive node.
+InteractiveNode status

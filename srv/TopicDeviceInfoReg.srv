@@ -1,0 +1,8 @@
+# Topic Device Registration
+
+# The topic device info.
+TopicDeviceInfo request
+
+---
+# response true if value accepted, otherwise server ignore the request and response false.
+bool response
