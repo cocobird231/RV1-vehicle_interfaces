@@ -4,10 +4,7 @@
 string topic_name
 
 ## Set to 'publisher', 'subscription' or 'both'
-string topic_type "both"
-
-## Device type corresponds to vehicle_interfaces header DEVTYPE_XXX definitions (preserve)
-uint8 dev_type
+string qos_type "both"
 
 ## Remove topic_name profile in temporary qmap. If true, server will ignore this QoS profile
 bool remove_profile 0
@@ -25,6 +22,9 @@ QosProfile qos_profile
 ---
 # response is true if value accepted, otherwise server ignore the request and response false
 bool response
+
+# If <response> response flase, describes the reason.
+string reason
 
 # Unique ID describes current qos profile. qid changed while save_qmap requests true
 uint64 qid

@@ -1,15 +1,15 @@
 # Get topic_name QoS setting
 string topic_name
 
-# Device type corresponds to vehicle_interfaces header DEVTYPE_XXX definitions (preserve)
-uint8 dev_type
-
-## Set to 'publisher', 'subscription' or 'both'
-string topic_type "both"
+## Set to 'publisher', 'subscription'
+string qos_type
 
 ---
 # response is true if value accepted, otherwise server ignore the request and response false
 bool response
+
+# If <response> response flase, describes the reason.
+string reason
 
 # Unique ID describes current qos profile
 uint64 qid

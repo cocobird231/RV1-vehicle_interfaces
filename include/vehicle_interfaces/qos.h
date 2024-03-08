@@ -649,7 +649,7 @@ private:
             return;
         }
 
-        auto tp = TopicProp(request->topic_name, request->topic_type);
+        auto tp = TopicProp(request->topic_name, request->qos_type);
 
         if (request->save_qmap)
         {
@@ -688,7 +688,7 @@ private:
             return;
         }
 
-        auto tp = TopicProp(request->topic_name, request->topic_type);
+        auto tp = TopicProp(request->topic_name, request->qos_type);
 
         RCLCPP_INFO(this->get_logger(), "[QoSServer::_reqServiceCallback] Request: %s [%s].", tp.name.c_str(), tp.type.str.c_str());
 
@@ -711,7 +711,7 @@ REQ_CHECK_TOPIC_NAME:
                 response->response = false;
                 response->qid = this->qid_.load();
             }
-            else// topic_type = "publisher" or "subscription" not found. Use "both" then search again.
+            else// qos_type = "publisher" or "subscription" not found. Use "both" then search again.
             {
                 tp = TopicProp(request->topic_name, TopicProp::BOTH);
                 goto REQ_CHECK_TOPIC_NAME;
