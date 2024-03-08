@@ -166,7 +166,7 @@ private:
     std::atomic<bool> targetAliveCbFuncF_;// Flag indicating whether the callback function for target alive event is set.
     std::atomic<uint8_t> targetAlive_;// Store recent target alive status.
 
-    std::function<uint8_t(const std::string, const uint8_t)> targetActivityCbFunc_;// Callback function for target activity event.
+    std::function<bool(const std::string, const uint8_t)> targetActivityCbFunc_;// Callback function for target activity event.
     std::mutex targetActivityCbFuncLock_;// Lock targetActivityCbFunc_ when setting or calling the callback function.
     std::atomic<bool> targetActivityCbFuncF_;// Flag indicating whether the callback function for target activity event is set.
     std::atomic<uint8_t> targetActivity_;// Store recent target activity status.
@@ -395,7 +395,7 @@ public:
      * @note The function will overwrite the privilege if the device ID is already in the white list.
      * @note This function is using whiteListMapLock_.
      */
-    void addMasterPrivilege(const InteractiveNodeMasterPrivilege& masterPrivi)
+    virtual void addMasterPrivilege(const InteractiveNodeMasterPrivilege& masterPrivi)
     {
         std::lock_guard<std::mutex> lock(this->whiteListMapLock_);
         this->whiteListMap_[masterPrivi.masterID] = masterPrivi;
@@ -604,6 +604,22 @@ public:
         if (prop.useReqServer)
             this->interReqServer_ = this->create_service<vehicle_interfaces::srv::InteractiveNodeReq>(this->getNodeName() + "_Req", 
                 std::bind(&MultiInteractiveNode::_interactiveNodeReqServerCbFunc, this, std::placeholders::_1, std::placeholders::_2));
+    }
+
+    /**
+     * @brief Add master privilege to the white list.
+     * @param[in] masterPrivi Privilege for the master device.
+     * @note The function will overwrite the privilege if the device ID is already in the white list.
+     * @note The function will add TARGET_ALIVE_NONE and TARGET_ACTIVITY_NONE to the status map for the master device by default.
+     * @note If user wants to change the status of the master device, call addTargetAlive() or addTargetActivity() for target_alive and target_activity status respectively.
+     * @note This function is using whiteListMapLock_, targetAliveMapLock_ and targetActivityMapLock_.
+     */
+    void addMasterPrivilege(const InteractiveNodeMasterPrivilege& masterPrivi) override
+    {
+        std::lock_guard<std::mutex> lock(this->whiteListMapLock_);
+        this->whiteListMap_[masterPrivi.masterID] = masterPrivi;
+        this->addTargetAlive(masterPrivi.masterID, vehicle_interfaces::msg::InteractiveNode::TARGET_ALIVE_NONE);
+        this->addTargetActivity(masterPrivi.masterID, vehicle_interfaces::msg::InteractiveNode::TARGET_ACTIVITY_NONE);
     }
 
     /**

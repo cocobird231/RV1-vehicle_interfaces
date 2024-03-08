@@ -14,7 +14,11 @@ string[] node_command_args
 
 ---
 # response is true if value accepted, otherwise server ignore the request and response false.
+## Returns true if request success. Otherwise, returns false if:
+## 1. Node is not interactable.
+## 2. The <device_id> does not have the privilege.
+## 3. The <node_command_name> not implemented.
 bool response
 
-# Describes the reason of the response.
+# If <response> response flase, describes the reason.
 string reason

@@ -1,9 +1,6 @@
 #pragma once
 #include "interactive_node.h"
-
-/**
- * TODO: subscriptions, mutex notes.
- */
+#include "vehicle_interfaces/msg/topic_device_info.hpp"
 
 namespace vehicle_interfaces
 {
@@ -76,6 +73,15 @@ public:
     InteractiveTopicType getTopicType() const
     {
         return this->topicType_;
+    }
+
+    vehicle_interfaces::msg::TopicDeviceInfo getTopicDeviceInfo()
+    {
+        vehicle_interfaces::msg::TopicDeviceInfo ret;
+        ret.node_name = this->getNodeName();
+        ret.topic_name = this->topicName_;
+        ret.device_type = this->topicType_;
+        return ret;
     }
 };
 
@@ -280,10 +286,15 @@ public:
     {
         return this->topicType_;
     }
+    
+    vehicle_interfaces::msg::TopicDeviceInfo getTopicDeviceInfo()
+    {
+        vehicle_interfaces::msg::TopicDeviceInfo ret;
+        ret.node_name = this->getNodeName();
+        ret.topic_name = this->topicName_;
+        ret.device_type = this->topicType_;
+        return ret;
+    }
 };
-
-
-
-
 
 }
