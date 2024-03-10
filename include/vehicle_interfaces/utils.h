@@ -131,13 +131,77 @@ public:
     }
 };
 
+class HierarchicalPrint
+{
+private:
+    uint16_t maxHierarchy_;
+    std::deque<std::pair<uint16_t, std::string> > que_;
+
+public:
+    HierarchicalPrint() : maxHierarchy_(0) {}
+
+    void push(const uint16_t hierarchy, const std::string& str)
+    {
+        this->que_.push_back({ hierarchy, str });
+        this->maxHierarchy_ = std::max(this->maxHierarchy_, hierarchy);
+    }
+
+    void push(const uint16_t hierarchy, const char* fmt, ...)
+    {
+        char printBuf[1024];
+        va_list args;
+        va_start(args, fmt);
+        vsprintf(printBuf, fmt, args);
+        va_end(args);
+        this->que_.push_back({ hierarchy, printBuf });
+        this->maxHierarchy_ = std::max(this->maxHierarchy_, hierarchy);
+    }
+
+    void print()
+    {
+        std::vector<uint16_t> level(this->maxHierarchy_, 0);
+
+        // Search the hierarchy level from the end of the queue.
+        for (std::deque<std::pair<uint16_t, std::string> >::reverse_iterator it{this->que_.rbegin()}; it != this->que_.rend(); ++it)
+        {
+            const auto& [hierarchy, str] = *it;
+            bool changeF = level[hierarchy] == 0;// If the hierarchy level appears for the first time, change the symbol.
+            level[hierarchy] = 1;// Mark the hierarchy level as appeared.
+            std::string hierarchyStr = "";// Hierarcy prefix string.
+            if (hierarchy == 0)// Root.
+                hierarchyStr += "---";
+            else
+            {
+                for (int j = 0; j < hierarchy; j++)// Find parent hierarchy level.
+                {
+                    if (j != 0 && level[j] == 1)// If the hierarchy level appears, add the symbol.
+                        hierarchyStr += "|  ";
+                    else
+                        hierarchyStr += "   ";
+                }
+                if (changeF)// If the hierarchy level appears for the first time, change the symbol.
+                    hierarchyStr += "\\__";
+                else
+                    hierarchyStr += "|--";
+            }
+            for (int j = hierarchy + 1; j < level.size(); j++)// Reset the hierarchy level after the current hierarchy level.
+                level[j] = 0;
+            (*it).second = hierarchyStr + str;// Add the hierarchy prefix string to the message.
+        }
+        for (const auto& i : this->que_)// Print the message with the hierarchy prefix string.
+            printf("%s\n", i.second.c_str());
+    }
+
+    void clear() { this->que_.clear(); }
+};
+
 template<typename T>
 struct ReasonResult
 {
     T result;
-    std::string reason = "";
+    std::string reason;
     ReasonResult() {}
-    ReasonResult(const T& res) : result(res) {}
+    ReasonResult(const T& res) : result(res), reason("") {}
     ReasonResult(const T& res, const std::string& reason) : result(res), reason(reason) {}
 };
 
@@ -168,6 +232,16 @@ void SpinExecutor(rclcpp::executors::SingleThreadedExecutor* exec, std::string t
     std::cerr << threadName << " start..." << std::endl;
     exec->spin();
     std::cerr << threadName << " exit." << std::endl;
+}
+
+void SpinExecutor2(rclcpp::executors::SingleThreadedExecutor* exec, std::string threadName, double delay_ms, bool& isEnded)
+{
+    isEnded = false;
+    std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(delay_ms));
+    std::cerr << threadName << " start..." << std::endl;
+    exec->spin();
+    std::cerr << threadName << " exit." << std::endl;
+    isEnded = true;
 }
 
 bool ConnToService(rclcpp::ClientBase::SharedPtr client, bool& stopF, std::chrono::milliseconds timeout = std::chrono::milliseconds(1000), int retry = 5)
