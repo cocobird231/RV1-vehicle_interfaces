@@ -159,7 +159,7 @@ public:
 
     void print()
     {
-        std::vector<uint16_t> level(this->maxHierarchy_, 0);
+        std::vector<uint16_t> level(this->maxHierarchy_ + 1, 0);
 
         // Search the hierarchy level from the end of the queue.
         for (std::deque<std::pair<uint16_t, std::string> >::reverse_iterator it{this->que_.rbegin()}; it != this->que_.rend(); ++it)
