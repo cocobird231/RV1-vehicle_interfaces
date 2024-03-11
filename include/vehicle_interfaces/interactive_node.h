@@ -532,6 +532,38 @@ public:
         }
         return ret;
     }
+
+    /**
+     * @brief Call target alive callback function.
+     * @param[in] deviceID Device ID of the master device.
+     * @param[in] status Target alive status.
+     * @return True if the callback function is set and the process is successful. Otherwise, the function returns false and the reason.
+     */
+    ReasonResult<bool> callTargetAliveCbFunc(std::string deviceID, uint8_t status)
+    {
+        auto req = std::make_shared<vehicle_interfaces::srv::InteractiveNode::Request>();
+        req->device_id = deviceID;
+        req->interactive_node.target_alive = status;
+        auto res = std::make_shared<vehicle_interfaces::srv::InteractiveNode::Response>();
+        this->_interactiveNodeServerCbFunc(req, res);
+        return { res->response, res->reason };
+    }
+
+    /**
+     * @brief Call target activity callback function.
+     * @param[in] deviceID Device ID of the master device.
+     * @param[in] status Target activity status.
+     * @return True if the callback function is set and the process is successful. Otherwise, the function returns false and the reason.
+     */
+    ReasonResult<bool> callTargetActivityCbFunc(std::string deviceID, uint8_t status)
+    {
+        auto req = std::make_shared<vehicle_interfaces::srv::InteractiveNode::Request>();
+        req->device_id = deviceID;
+        req->interactive_node.target_activity = status;
+        auto res = std::make_shared<vehicle_interfaces::srv::InteractiveNode::Response>();
+        this->_interactiveNodeServerCbFunc(req, res);
+        return { res->response, res->reason };
+    }
 };
 
 

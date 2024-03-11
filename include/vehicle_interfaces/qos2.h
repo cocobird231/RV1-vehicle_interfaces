@@ -1,5 +1,7 @@
+#pragma once
 #include <condition_variable>
 #include <stdexcept>
+#include <memory>
 
 #include "vehicle_interfaces/interactive_publisher.h"
 #include "vehicle_interfaces/interactive_subscription.h"
@@ -362,7 +364,7 @@ std::vector<std::string> CvtRMWQoSToInteractiveNodeCommandArgs(const rmw_qos_pro
  * @param[in] args The arguments of the node command funtion.
  * @return The rclcpp::QoS object.
  */
-rmw_qos_profile_t CvtInteractiveNodeCommandArgsToQoS(const std::vector<std::string>& args)
+rmw_qos_profile_t CvtInteractiveNodeCommandArgsToRMWQoS(const std::vector<std::string>& args)
 {
     /**
      * The arguments of the node command arguments should be in the following format:
@@ -417,31 +419,10 @@ rmw_qos_profile_t CvtInteractiveNodeCommandArgsToQoS(const std::vector<std::stri
  */
 
 /**
- * @brief QoS update event handler.
- * @details The function is called when the interactive service server receives a QoS update request.
- * @param[in] node Pointer to the interactive node. The node should be a MultiInteractiveTopic or InteractiveTopic.
- * @param[in] deviceID The device ID of the request sender.
- * @param[in] args The arguments of the node command function.
- */
-void QoSUpdateEventHandler(InteractiveNode *node, const std::string deviceID, const std::vector<std::string> args)
-{
-    if (auto qosNode = dynamic_cast<MultiInteractiveTopicNode *>(node))
-    {
-        qosNode->setQoS(CvtRMWQoSToRclQoS(CvtInteractiveNodeCommandArgsToQoS(args)));
-    }
-    else if (auto qosNode = dynamic_cast<InteractiveTopicNode *>(node))
-    {
-        qosNode->setQoS(CvtRMWQoSToRclQoS(CvtInteractiveNodeCommandArgsToQoS(args)));
-    }
-}
-
-
-
-/**
  * @brief The QoSNode class.
  * @details The class is used to register the topic device to the QoSServer.
  */
-class QoSNode : public rclcpp::Node
+class QoSNode : virtual public rclcpp::Node
 {
 private:
     const std::string qosServiceName_;// The name of the QoSServer service.
@@ -475,6 +456,29 @@ private:
     {
         std::lock_guard<std::mutex> _lock(lock);
         return *ptr;
+    }
+
+    /**
+     * @brief QoS update event handler.
+     * @details The function is called when the interactive service server receives a QoS update request.
+     * @param[in] node Pointer to the interactive node. The node should be a MultiInteractiveTopic or InteractiveTopic.
+     * @param[in] deviceID The device ID of the request sender.
+     * @param[in] args The arguments of the node command function.
+     */
+    void _qosUpdateEventHandler(InteractiveNode *node, const std::string deviceID, const std::vector<std::string> args)
+    {
+        auto qos = CvtInteractiveNodeCommandArgsToRMWQoS(args);
+        if (auto qosNode = dynamic_cast<MultiInteractiveTopicNode *>(node))
+        {
+            qosNode->setQoS(CvtRMWQoSToRclQoS(qos));
+        }
+        else if (auto qosNode = dynamic_cast<InteractiveTopicNode *>(node))
+        {
+            qosNode->setQoS(CvtRMWQoSToRclQoS(qos));
+        }
+        std::string fileName = node->getNodeName();
+        vehicle_interfaces::replace_all(fileName, "/", "_");
+        DumpRMWQoSToJSON(this->qosDirPath_ / (fileName + ".json"), qos);
     }
 
     /**
@@ -536,7 +540,8 @@ TOPIC_DEV_REG_TAG:
         while (!this->exitF_ && !this->stopTopicDevInfoRegThF_)
         {
             lock.lock();
-            this->topicDevStatusMapCV_.wait(lock, [this](){ return this->exitF_ || this->stopTopicDevInfoRegThF_ || !this->topicDevInfoStatusMap_.empty(); });
+            // this->topicDevStatusMapCV_.wait(lock, [this](){ return this->exitF_ || this->stopTopicDevInfoRegThF_ || !this->topicDevInfoStatusMap_.empty(); });
+            this->topicDevStatusMapCV_.wait(lock);
             if (this->exitF_ || this->stopTopicDevInfoRegThF_)
             {
                 lock.unlock();
@@ -568,7 +573,7 @@ TOPIC_DEV_REG_TAG:
     void _topicDevInfoRegSubCbFunc(const std::shared_ptr<vehicle_interfaces::msg::IDTable> msg)
     {
         std::lock_guard<std::mutex> topicDevInfoRegSubLock(this->topicDevInfoRegSubMutex_);
-        std::unique_lock<std::mutex> topicDevInfoStatusMapLock(this->topicDevStatusMapMutex_);
+        std::unique_lock<std::mutex> topicDevInfoStatusMapLock(this->topicDevStatusMapMutex_, std::defer_lock);
         topicDevInfoStatusMapLock.lock();
         for (auto& [nodeName, topicDevStatus] : this->topicDevInfoStatusMap_)
         {
@@ -588,8 +593,8 @@ TOPIC_DEV_REG_TAG:
                 topicDevStatus.second = false;
             }
         }
-        topicDevInfoStatusMapLock.unlock();
         this->topicDevStatusMapCV_.notify_all();
+        topicDevInfoStatusMapLock.unlock();
     }
 
 public:
@@ -639,11 +644,11 @@ public:
      * @brief Add the interactive node to the QoSNode.
      * @details The function adds the node information to the QoSNode.
      * @param[in] node Pointer to the interactive node. The node should be a MultiInteractiveTopic or InteractiveTopic.
-     * @param[in] tryReadQoSProfile If true, the function will try to read the QoS profile from the file.
+     * @param[in] tryReadQoSProfile If true, the function will try to read the QoS profile from the qosDirPath_.
      * @return True if the node is added to the QoSNode; false otherwise.
      * @note The function is using topicDevStatusMapCV_ and topicDevStatusMapMutex_.
      */
-    bool addQoSNodeCommand(InteractiveNode *node, bool tryReadQoSProfile = true)
+    bool addQoSNodeCommand(std::shared_ptr<InteractiveNode> node, bool tryReadQoSProfile = true)
     {
         if (!this->nodeEnableF_)
         {
@@ -666,7 +671,7 @@ public:
         privi.requestInteractiveNode = false;
 
         // Add master privilege to the node and add topic device information to the list.
-        if (auto topicNode = dynamic_cast<MultiInteractiveTopicNode *>(node))
+        if (auto topicNode = std::dynamic_pointer_cast<MultiInteractiveTopicNode>(node))
         {
             topicNode->addMasterPrivilege(privi);// MultiInteractiveTopicNode call addMasterPrivilege() to add init master target status.
             vehicle_interfaces::msg::TopicDeviceInfo tInfo;
@@ -675,7 +680,7 @@ public:
             tInfo.device_type = topicNode->getTopicType();
             this->topicDevInfoStatusMap_[tInfo.node_name] = { tInfo, false };
         }
-        else if (auto topicNode = dynamic_cast<InteractiveTopicNode *>(node))
+        else if (auto topicNode = std::dynamic_pointer_cast<InteractiveTopicNode>(node))
         {
             topicNode->addMasterPrivilege(privi);
             vehicle_interfaces::msg::TopicDeviceInfo tInfo;
@@ -689,7 +694,35 @@ public:
             RCLCPP_WARN(this->get_logger(), "[QoSNode::addQoSNodeCommand] %s is not a valid interactive topic node.", node->getNodeName().c_str());
             return false;
         }
-        node->addNodeCommandEventHandler("qos_update", vehicle_interfaces::QoSUpdateEventHandler);
+
+        if (tryReadQoSProfile)// Try to read QoS profile
+        {
+            std::string fileName = node->getNodeName();
+            vehicle_interfaces::replace_all(fileName, "/", "_");
+            rmw_qos_profile_t qos = rmw_qos_profile_default;
+            if (LoadRMWQoSFromJSON(this->qosDirPath_ / (fileName + ".json"), qos))
+            {
+                RCLCPP_INFO(this->get_logger(), "[QoSNode::addQoSNodeCommand] %s QoS profile loaded.", node->getNodeName().c_str());
+                printf("QoS profile: %d/%d/%d/%d\n", qos.history, qos.depth, qos.reliability, qos.durability);
+                uint8_t preStatus = node->getTargetAlive();
+                node->callTargetAliveCbFunc(this->qosServiceName_, vehicle_interfaces::msg::InteractiveNode::TARGET_ALIVE_DISABLE);
+                if (auto topicNode = std::dynamic_pointer_cast<MultiInteractiveTopicNode>(node))
+                {
+                    topicNode->setQoS(CvtRMWQoSToRclQoS(qos));
+                }
+                else if (auto topicNode = std::dynamic_pointer_cast<InteractiveTopicNode>(node))
+                {
+                    topicNode->setQoS(CvtRMWQoSToRclQoS(qos));
+                }
+                node->callTargetAliveCbFunc(this->qosServiceName_, preStatus);
+            }
+            else
+            {
+                RCLCPP_WARN(this->get_logger(), "[QoSNode::addQoSNodeCommand] %s QoS profile not found.", node->getNodeName().c_str());
+            }
+        }
+
+        node->addNodeCommandEventHandler("qos_update", std::bind(&QoSNode::_qosUpdateEventHandler, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         RCLCPP_INFO(this->get_logger(), "[QoSNode::addQoSNodeCommand] Add %s to list.", node->getNodeName().c_str());
         this->topicDevStatusMapCV_.notify_all();
         return true;
@@ -1060,7 +1093,24 @@ public:
     }
 };
 
+}
 
+
+namespace std
+{
+    template <>
+    struct less<vehicle_interfaces::TopicQoS>
+    {
+        bool operator()(const vehicle_interfaces::TopicQoS& lhs, const vehicle_interfaces::TopicQoS& rhs) const
+        {
+            return lhs.getTopicName() < rhs.getTopicName();
+        }
+    };
+}
+
+
+namespace vehicle_interfaces
+{
 
 /**
  * ============================================================================
@@ -1217,15 +1267,17 @@ private:
             RCLCPP_WARN(this->get_logger(), "[QoSServer::_qosReqServiceCbFunc] Request: %s [%s] failed: invalid request.", request->topic_name.c_str(), request->qos_type.c_str());
             response->response = false;
             response->qid = this->qid_.load();
+            response->reason = TopicQoSExceptionMsg[TopicQoSException::QOS_EXC_INVALID_TOPIC_NAME];
             return;
         }
 
         // Invalid topic type.
-        if (request->qos_type != "publisher" && request->qos_type != "subscription")
+        if (request->qos_type != "publisher" && request->qos_type != "subscription" && request->qos_type != "both")
         {
             RCLCPP_WARN(this->get_logger(), "[QoSServer::_qosReqServiceCbFunc] Request: %s [%s] failed: invalid qos_type.", request->topic_name.c_str(), request->qos_type.c_str());
             response->response = false;
             response->qid = this->qid_.load();
+            response->reason = TopicQoSExceptionMsg[TopicQoSException::QOS_EXC_INVALID_TOPIC_TYPE];
             return;
         }
 
@@ -1235,10 +1287,46 @@ private:
         auto topicQoSMapCopy = this->_safeCall(&this->topicQoSMap_, this->topicQoSMapMutex_);
         try
         {
-            if (topicQoSMapCopy.find(request->topic_name) == topicQoSMapCopy.end())
-                throw TopicQoSException::QOS_EXC_INVALID_TOPIC_NAME;
-            auto msg = CvtRMWQoSToMsg(topicQoSMapCopy[request->topic_name][request->qos_type]);
-            response->qos_profile = msg;
+            if (request->topic_name == "all")
+            {
+                for (const auto& [topicName, tQoS] : topicQoSMapCopy)
+                {
+                    if (tQoS.isPubQoSValid() && (request->qos_type == "publisher" || request->qos_type == "both"))
+                    {
+                        response->topic_name_vec.push_back(topicName);
+                        response->qos_type_vec.push_back("publisher");
+                        response->qos_profile_vec.push_back(CvtRMWQoSToMsg(tQoS["publisher"]));
+                    }
+                    if (tQoS.isSubQoSValid() && (request->qos_type == "subscription" || request->qos_type == "both"))
+                    {
+                        response->topic_name_vec.push_back(topicName);
+                        response->qos_type_vec.push_back("subscription");
+                        response->qos_profile_vec.push_back(CvtRMWQoSToMsg(tQoS["subscription"]));
+                    }
+                }
+            }
+            else
+            {
+                if (topicQoSMapCopy.find(request->topic_name) == topicQoSMapCopy.end())
+                    throw TopicQoSException::QOS_EXC_INVALID_TOPIC_NAME;
+                auto msg = vehicle_interfaces::msg::QosProfile();
+                TopicQoS qos = topicQoSMapCopy[request->topic_name];
+                if (request->qos_type == "publisher" || request->qos_type == "both")
+                {
+                    msg = CvtRMWQoSToMsg(qos["publisher"]);
+                    response->topic_name_vec.push_back(request->topic_name);
+                    response->qos_type_vec.push_back("publisher");
+                    response->qos_profile_vec.push_back(msg);
+                }
+                if (request->qos_type == "subscription" || request->qos_type == "both")
+                {
+                    msg = CvtRMWQoSToMsg(qos["subscription"]);
+                    response->topic_name_vec.push_back(request->topic_name);
+                    response->qos_type_vec.push_back("subscription");
+                    response->qos_profile_vec.push_back(msg);
+                }
+
+            }
             response->qid = this->qid_.load();
         }
         catch (const TopicQoSException& e)
@@ -1249,6 +1337,7 @@ private:
                 TopicQoSExceptionMsg[e]);
             response->response = false;
             response->qid = this->qid_.load();
+            response->reason = TopicQoSExceptionMsg[e];
             return;
         }
         RCLCPP_INFO(this->get_logger(), "[QoSServer::_qosReqServiceCbFunc] Response: qid: %-4d %s [%s] (found: %s).", 
@@ -1270,6 +1359,12 @@ private:
         std::lock_guard<std::mutex> topicDevInfoRegServiceLock(this->topicDevInfoRegServiceMutex_);
         std::lock_guard<std::mutex> topicDevInfoMapLock(this->topicDevInfoMapMutex_);
         this->topicDevInfoMap_[request->request.node_name] = request->request;
+        RCLCPP_INFO(this->get_logger(), "[QoSServer::_topicDevInfoRegServiceCbFunc] %-30s: %-20s[%-12s] registered.", 
+            request->request.node_name.c_str(), 
+            request->request.topic_name.c_str(), 
+            request->request.device_type == vehicle_interfaces::msg::TopicDeviceInfo::DEVICE_TYPE_PUBLISHER ? "publisher" : 
+            (request->request.device_type == vehicle_interfaces::msg::TopicDeviceInfo::DEVICE_TYPE_SUBSCRIPTION ? "subscription" : "unknown"));
+        response->response = true;
     }
 
     /**
@@ -1355,8 +1450,8 @@ private:
      * @brief Update QoS profile for the topic devices.
      * @details The function updates the QoS profile for the topic devices.
      * @return True if the QoS profile is updated successfully; false otherwise.
-     * @note The function is using topicDevInfoMapMutex_, topicQoSMapMutex_ and topicQoSUpdateMapMutex_.
      * @note The functin will called InteractiveNode directly to update the QoS profile for the publisher and subscriber.
+     * @note The function is using topicDevInfoMapMutex_, topicQoSMapMutex_ and topicQoSUpdateMapMutex_.
      */
     bool _updateInteractiveNodeQoS()
     {
@@ -1375,6 +1470,17 @@ private:
                 continue;
             qosDevMap[topicQoSMapCopy[tInfo.topic_name]].push_back(tInfo);// Add the topic device under the QoS profile.
         }
+
+        RCLCPP_INFO(this->get_logger(), "[QoSServer::_updateInteractiveNodeQoS] Update QoS profile for the topic devices.");
+        vehicle_interfaces::HierarchicalPrint hprint;
+        for (const auto& [tQoS, tInfoQue] : qosDevMap)
+        {
+            hprint.push(0, "[Topic: %s]", tQoS.getTopicName().c_str());
+            for (const auto& tInfo : tInfoQue)
+                hprint.push(1, "%s [%s]", tInfo.node_name.c_str(), tInfo.device_type == vehicle_interfaces::msg::TopicDeviceInfo::DEVICE_TYPE_PUBLISHER ? "publisher" : "subscription");
+        }
+        hprint.print();
+        hprint.clear();
 
         // Start to update QoS profile for the topic devices.
         for (const auto& [qos, devQue] : qosDevMap)// Each QoS profile and its devices.
@@ -1624,7 +1730,7 @@ public:
      * @brief Set the temporary QoS profile map to the QoS profile map and dump the QoS profile map to the file.
      * @details The function sets the temporary QoS profile map to the QoS profile map and dumps the QoS profile map to the file.
      * @return True if the QoS profile map is set; false otherwise.
-     * @note The function is using topicQoSMapMutex_ and topicQoSMapTmpMutex_.
+     * @note The function is using topicQoSMapMutex_, topicQoSMapTmpMutex_, topicQoSUpdateMapMutex_ and topicDevInfoMapMutex_.
      */
     vehicle_interfaces::ReasonResult<bool> setTopicQoSMap()
     {
@@ -1647,6 +1753,9 @@ public:
 
         if (needUpdate)
         {
+            RCLCPP_INFO(this->get_logger(), "[QoSServer::setTopicQoSMap] QoS need updated!");
+            for (const auto& [topicName, update] : updateMap)
+                RCLCPP_INFO(this->get_logger(), "[QoSServer::setTopicQoSMap] %-30s: %-9s %-12s.", topicName.c_str(), update.first ? "publisher" : "", update.second ? "subscription" : "");
             // Lock both topicQoSMap_ and topicQoSMapTmp_.
             std::unique_lock<std::mutex> topicQoSMapLock(this->topicQoSMapMutex_, std::defer_lock);
             std::unique_lock<std::mutex> topicQoSMapTmpLock(this->topicQoSMapTmpMutex_, std::defer_lock);
@@ -1659,6 +1768,7 @@ public:
             topicQoSMapTmpLock.unlock();
             topicQoSMapLock.unlock();
             this->dumpQmapToJSON();
+            this->_updateInteractiveNodeQoS();
         }
         return true;
     }

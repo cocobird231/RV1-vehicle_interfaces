@@ -91,10 +91,10 @@ class QoSUpdateNode(NodeAdaptor):
     def __topic_callback(self, msg):
         if (not self.__callbackF):# No callback function assigned
             return
-        
+
         if (msg.qid == self.__qosID):# Ignore update in same qos ID
             return
-        
+
         self.get_logger().info('[QoSUpdateNode.__topic_callback] qid: %d' %msg.qid)
 
         topicVec = []
@@ -110,7 +110,7 @@ class QoSUpdateNode(NodeAdaptor):
                 qmap[topic] = self.requestQoS(topic)
             except:
                 self.get_logger().info('[QoSUpdateNode.requestQoS] Request error: %s' %topic)
-        
+
         if (len(qmap) > 0):
             self.__qosCallbackFunc(qmap)
 
@@ -122,7 +122,7 @@ class QoSUpdateNode(NodeAdaptor):
                     %os.path.join(self.__qosDirPath, tn + '.json'))
 
         self.__qosID = msg.qid
-    
+
     def __splitTime(self, time_ms : float):
         return Duration(seconds=time_ms / 1000, nanoseconds=(time_ms - int(time_ms)) * 1000000)
 
@@ -130,10 +130,10 @@ class QoSUpdateNode(NodeAdaptor):
     def addQoSTracking(self, topicName : str):
         if (not self.__nodeEnableF):
             return None
-        
+
         if (len(topicName) <= 0):
             return None
-        
+
         # Considering namespace
         if (len(self.get_namespace()) > 0):
             if (topicName.find(self.get_namespace()) < 0):# topicName not include namespace
@@ -141,12 +141,12 @@ class QoSUpdateNode(NodeAdaptor):
                     topicName = self.get_namespace() + topicName
                 else:
                     topicName = self.get_namespace() + '/' + topicName
-        
+
         # Ignore adding to tracking list if topicName already exists
         for i in self.__qosTopicNameVec:
             if (i == topicName):
                 return None
-        
+
         # Load QoS profile
         ## Topic name trans
         tn = topicName.replace('/', '_')
@@ -181,11 +181,11 @@ class QoSUpdateNode(NodeAdaptor):
         if (not future.done()):
             self.get_logger().info('[QoSUpdateNode.requestQoS] Failed to call service')
             raise "Request QoS Failed"# Request QoS failed
-        
+
         response = future.result()
         self.get_logger().info('[QoSUpdateNode.requestQoS] Response: %d' %response.response)
         if (response.response):
-            msg = response.qos_profile
+            msg = response.qos_profile_vec[0]
             prof = QoSProfile(depth=msg.depth)
             prof.history = msg.history
             prof.reliability = msg.reliability

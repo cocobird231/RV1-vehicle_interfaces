@@ -16,6 +16,7 @@
 #include "vehicle_interfaces/utils.h"
 #include "vehicle_interfaces/msg/qos_profile.hpp"
 #include "vehicle_interfaces/msg/qos_update.hpp"
+#include "vehicle_interfaces/msg/topic_device_info.hpp"
 #include "vehicle_interfaces/srv/qos_reg.hpp"
 #include "vehicle_interfaces/srv/qos_req.hpp"
 
@@ -481,16 +482,16 @@ public:
         if (topicName.length() <= 0)
             return {"", new rclcpp::QoS(10)};
 
-        if (strlen(this->get_namespace()) > 0)// Namespace exists
-        {
-            if (topicName.find(this->get_namespace()) == std::string::npos)
-            {
-                if (topicName[0] == '/')
-                    topicName = std::string(this->get_namespace()) + topicName;
-                else
-                    topicName = std::string(this->get_namespace()) + "/" + topicName;
-            }
-        }
+        // if (strlen(this->get_namespace()) > 0)// Namespace exists
+        // {
+        //     if (topicName.find(this->get_namespace()) == std::string::npos)
+        //     {
+        //         if (topicName[0] == '/')
+        //             topicName = std::string(this->get_namespace()) + topicName;
+        //         else
+        //             topicName = std::string(this->get_namespace()) + "/" + topicName;
+        //     }
+        // }
 
         std::unique_lock<std::mutex> locker(this->subscriptionLock_, std::defer_lock);
         locker.lock();
@@ -546,7 +547,7 @@ public:
             auto res = result.get();
             if (res->response)
             {
-                rmw_qos_profile_t prof = CvtMsgToRMWQoS(res->qos_profile);
+                rmw_qos_profile_t prof = CvtMsgToRMWQoS(res->qos_profile_vec.back());
                 // RCLCPP_INFO(this->get_logger(), "[QoSUpdateNode::requestQoS] Profile get: %s, %d.", getQoSProfEnumName(prof.reliability).c_str(), prof.depth);
                 return CvtRMWQoSToRclQoS(prof);
             }
@@ -699,31 +700,46 @@ private:
         auto qmapTmp = this->qmap_;
         locker.unlock();
 
-REQ_CHECK_TOPIC_NAME:
-        // Check topic name
-        if (qmapTmp.find(tp.fullName) == qmapTmp.end())
+        if (request->topic_name == "all")
         {
-            if (tp.type == TopicProp::BOTH)
+            response->response = true;
+            response->qid = this->qid_.load();
+            for (const auto& [fName, qos] : qmapTmp)
             {
-                // Topic name not listed in qmap
-                rclcpp::QoS* ret = new rclcpp::QoS(10);
-                response->qos_profile = CvtRMWQoSToMsg(ret->get_rmw_qos_profile());
-                response->response = false;
-                response->qid = this->qid_.load();
-            }
-            else// qos_type = "publisher" or "subscription" not found. Use "both" then search again.
-            {
-                tp = TopicProp(request->topic_name, TopicProp::BOTH);
-                goto REQ_CHECK_TOPIC_NAME;
+                response->topic_name_vec.push_back(TopicProp::retrieveTopicProp(fName).name);
+                response->qos_type_vec.push_back(TopicProp::retrieveTopicProp(fName).type.str);
+                response->qos_profile_vec.push_back(CvtRMWQoSToMsg(qos));
             }
         }
         else
         {
-            // Found topic name
-            response->qos_profile = CvtRMWQoSToMsg(qmapTmp[tp.fullName]);
-            response->response = true;
-            response->qid = this->qid_.load();
+REQ_CHECK_TOPIC_NAME:
+            // Check topic name
+            if (qmapTmp.find(tp.fullName) == qmapTmp.end())
+            {
+                if (tp.type == TopicProp::BOTH)
+                {
+                    // Topic name not listed in qmap
+                    response->response = false;
+                    response->qid = this->qid_.load();
+                }
+                else// qos_type = "publisher" or "subscription" not found. Use "both" then search again.
+                {
+                    tp = TopicProp(request->topic_name, TopicProp::BOTH);
+                    goto REQ_CHECK_TOPIC_NAME;
+                }
+            }
+            else
+            {
+                // Found topic name
+                response->topic_name_vec.push_back(request->topic_name);
+                response->qos_type_vec.push_back(request->qos_type);
+                response->qos_profile_vec.push_back(CvtRMWQoSToMsg(qmapTmp[tp.fullName]));
+                response->response = true;
+                response->qid = this->qid_.load();
+            }
         }
+
 
         // Logger
         RCLCPP_INFO(this->get_logger(), "[QoSServer::_reqServiceCallback] Response: qid: %04d %s [%s] (found: %s).", 
