@@ -1,0 +1,18 @@
+# For offline SLAM
+
+bool request_left_image
+bool request_right_image
+bool request_pc
+bool request_imu
+
+---
+# response is true if value accepted, otherwise server ignore the request and response false.
+bool response
+
+# If <response> response flase, describes the reason.
+string reason
+
+sensor_msgs/CompressedImage left_image
+sensor_msgs/CompressedImage right_image
+sensor_msgs/PointCloud2 pc
+sensor_msgs/Imu imu

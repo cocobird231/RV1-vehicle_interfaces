@@ -13,6 +13,7 @@
 #include <mutex>
 
 #include "rclcpp/rclcpp.hpp"
+#include "vehicle_interfaces/timer.h"
 #include "vehicle_interfaces/utils.h"
 #include "vehicle_interfaces/msg/qos_profile.hpp"
 #include "vehicle_interfaces/msg/qos_update.hpp"
@@ -626,7 +627,7 @@ private:
                 {
                     locker.lock();
                     this->pubInterval_ms_ = param.as_double();
-                    this->pubTimer_->setInterval(this->pubInterval_ms_);
+                    this->pubTimer_->setPeriod(this->pubInterval_ms_);
                     locker.unlock();
                     res.successful = true;
                 }

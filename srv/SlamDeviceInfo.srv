@@ -1,0 +1,23 @@
+bool request
+
+---
+# response is true if value accepted, otherwise server ignore the request and response false.
+bool response
+
+# If <response> response flase, describes the reason.
+string reason
+
+# Device mode
+bool passive_mode
+string frame_req_service_name
+
+# Camera information
+sensor_msgs/CameraInfo left_cam_info
+sensor_msgs/CameraInfo right_cam_info
+float64 baseline
+
+# Point cloud
+string pc_topic_name
+
+# IMU
+string imu_topic_name

@@ -84,10 +84,46 @@ set(srv_files
   "srv/SafetyReq.srv"
   "srv/TimeSync.srv"
   "srv/TopicDeviceInfoReg.srv"
+  "srv/SlamDeviceInfo.srv"
+  "srv/SlamFrameReq.srv"
 )
 
+SET(PYLIB False CACHE BOOL "Some user-specified option")
+if( PYLIB ) 
+
+if($ENV{ROS_DISTRO} STREQUAL "foxy")
+  add_compile_options(-DROS_DISTRO=1)
+elseif($ENV{ROS_DISTRO} STREQUAL "humble")
+  add_compile_options(-DROS_DISTRO=2)
+else()# eloquent
+  add_compile_options(-DROS_DISTRO=0)
+endif()
+
+find_package(Python COMPONENTS Interpreter Development)
+find_package(pybind11 CONFIG REQUIRED)
+find_package(${PROJECT_NAME} REQUIRED)
+
+set(src_files
+ "src/pybind11.cpp"
+)
+
+ament_python_install_package(${PROJECT_NAME})
+
+add_library(cpplib MODULE ${src_files})
+ament_target_dependencies(cpplib rclcpp vehicle_interfaces pybind11)
+# pybind11_add_module(cpplib ${src_files})
+
+set_target_properties(cpplib PROPERTIES PREFIX "")
+
+install(
+ TARGETS cpplib
+ DESTINATION "${PYTHON_INSTALL_DIR}/${PROJECT_NAME}"
+)
+
+else()
+
 ## Build
-rosidl_generate_interfaces(${PROJECT_NAME} ${msg_files} ${msg_content_files} ${msg_geo_files} ${srv_files} DEPENDENCIES builtin_interfaces)
+rosidl_generate_interfaces(${PROJECT_NAME} ${msg_files} ${msg_content_files} ${msg_geo_files} ${srv_files} DEPENDENCIES builtin_interfaces sensor_msgs)
 
 
 ## Install
@@ -136,21 +172,4 @@ endif()
 
 ament_package()
 
-
-#find_package(Python COMPONENTS Interpreter Development)
-#find_package(pybind11 CONFIG REQUIRED)
-#find_package(${PROJECT_NAME} REQUIRED)
-
-#set(src_files
-#  "src/pybind11.cpp"
-#)
-
-#ament_python_install_package(${PROJECT_NAME})
-
-#add_library(utils MODULE ${src_files})
-#ament_target_dependencies(utils rclcpp vehicle_interfaces pybind11)
-
-#install(
-#  TARGETS utils
-#  DESTINATION "${PYTHON_INSTALL_DIR}/${PROJECT_NAME}"
-#)
+endif()

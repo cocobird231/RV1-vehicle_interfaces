@@ -302,7 +302,7 @@ private:
 
 protected:
     /**
-     * @brief Constructor of InteractiveNode class.
+     * @brief Constructor of InteractiveNode class. This constructor is protected and should only be called by the derived class.
      * @param[in] nodeName Name of the node.
      * @param[in] prop Initialization property.
      * @param[in] isMultiF True if InteractiveNode is inherited by MultiInteractiveNode, false otherwise.
@@ -321,7 +321,7 @@ protected:
     {
         this->interServer_ = this->create_service<vehicle_interfaces::srv::InteractiveNode>(this->nodeName_, 
             std::bind(&InteractiveNode::_interactiveNodeServerCbFunc, this, std::placeholders::_1, std::placeholders::_2));
-        
+
         if (this->reqServerF_ && !isMultiF)// If this node is inherited by MultiInteractiveNode, the request server should be created in the MultiInteractiveNode class.
             this->interReqServer_ = this->create_service<vehicle_interfaces::srv::InteractiveNodeReq>(this->nodeName_ + "_Req", 
                 std::bind(&InteractiveNode::_interactiveNodeReqServerCbFunc, this, std::placeholders::_1, std::placeholders::_2));
@@ -348,7 +348,7 @@ public:
     {
         this->interServer_ = this->create_service<vehicle_interfaces::srv::InteractiveNode>(this->nodeName_, 
             std::bind(&InteractiveNode::_interactiveNodeServerCbFunc, this, std::placeholders::_1, std::placeholders::_2));
-        
+
         if (this->reqServerF_)
             this->interReqServer_ = this->create_service<vehicle_interfaces::srv::InteractiveNodeReq>(this->nodeName_ + "_Req", 
                 std::bind(&InteractiveNode::_interactiveNodeReqServerCbFunc, this, std::placeholders::_1, std::placeholders::_2));

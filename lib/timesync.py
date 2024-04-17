@@ -15,56 +15,10 @@ from vehicle_interfaces.srv import TimeSync
 from vehicle_interfaces.node_adaptor import NodeAdaptor
 from vehicle_interfaces.utils import ConnToService
 
-# TODO: Need to be improved
-class Timer():
-    def __init__(self, interval_ms : float, cb) -> None:
-        self.__interval_ms = interval_ms
-        self.__func = cb
-        self.__timerTH = threading.Thread(target=self._startTimerTH)
-
-        self.__activateF = False
-        self.__exitF = False
-
-        self.__funcCallableF = True
-        self.__funcTH = threading.Thread(target=self.__func)
-
-        self.__timerTH.start()
-    
-    def __del__(self):
-        self.destroy()
-    
-    def _callback(self):
-        self.__funcCallableF = False
-        self.__func()
-        self.__funcCallableF = True
-    
-    def _timer_tick(self):
-        if (not self.__exitF and self.__activateF and self.__funcCallableF):
-            if (self.__funcTH.is_alive()):
-                self.__funcTH.join()
-            self.__funcTH = threading.Thread(target=self._callback)
-            self.__funcTH.start()
-
-    def _startTimerTH(self):
-        while (not self.__exitF):
-            if (self.__activateF):
-                timer_ = threading.Timer(self.__interval_ms / 1000.0, self._timer_tick)
-                timer_.start()
-                timer_.join()
-
-    def start(self) -> None:
-        self.__activateF = True
-    
-    def stop(self) -> None:
-        self.__activateF = False
-    
-    def destroy(self):
-        self.__activateF = False
-        self.__exitF = True
-        self.__timerTH.join()
+from vehicle_interfaces.cpplib import make_unique_timer, Timer
 
 '''
-TimeSyncNode error occurs while using Node.create_timer(). Use Timer() instead.
+TimeSyncNode error occurs while using Node.create_timer(). Use make_unique_timer() instead.
 '''
 class TimeSyncNode(NodeAdaptor):
     def __init__(self, nodeName : str, timeSyncServiceName : str, timeSyncPeriod_ms : float, timeSyncAccuracy_ms : float, timeSyncWaitService : bool):
@@ -94,7 +48,7 @@ class TimeSyncNode(NodeAdaptor):
         else:
             self.__waitTh = threading.Thread(target=self.__waitService)
             self.__waitTh.start()
-        
+
         self.get_logger().info('[TimeSyncNode] Constructed.')
     
     def __del__(self):
@@ -109,14 +63,14 @@ class TimeSyncNode(NodeAdaptor):
 
             while (not self.syncTime()):
                 time.sleep(1)
-            
+
             if (self.__isSyncF):
                 self.get_logger().warning("[TimeSyncNode::__timeSyncTimer_callback] Time synchronized.")
             else:
                 self.get_logger().warning("[TimeSyncNode::__timeSyncTimer_callback] Time sync failed.")
-            
+
             if (self.__timeSyncPeriod_ms > 0):
-                self.__timeSyncTimer = Timer(self.__timeSyncPeriod_ms, self.__timeSyncTimer_callback)
+                self.__timeSyncTimer = make_unique_timer(self.__timeSyncPeriod_ms, self.__timeSyncTimer_callback)
                 self.__timeSyncTimer.start()
                 # self.__timeSyncTimer = self.create_timer(self.__timeSyncPeriod_ms / 1000.0, self.__timeSyncTimer_callback)# TODO: freezed while wait_set.is_ready Error
         except Exception as e:

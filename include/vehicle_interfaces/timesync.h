@@ -9,6 +9,7 @@
 #include <mutex>
 
 #include "rclcpp/rclcpp.hpp"
+#include "vehicle_interfaces/timer.h"
 #include "vehicle_interfaces/utils.h"
 #include "vehicle_interfaces/msg/header.hpp"
 #include "vehicle_interfaces/srv/time_sync.hpp"
@@ -33,7 +34,7 @@ class TimeSyncNode : virtual public rclcpp::Node
 {
 private:
     // Time sync value
-    rclcpp::Duration* correctDuration_;
+    std::shared_ptr<rclcpp::Duration> correctDuration_;
     std::atomic<uint8_t> timeStampType_;
     
     // Node and service
@@ -41,7 +42,7 @@ private:
     rclcpp::Client<vehicle_interfaces::srv::TimeSync>::SharedPtr client_;
 
     // Time sync parameters
-    Timer* timeSyncTimer_;
+    std::shared_ptr<Timer> timeSyncTimer_;
     std::chrono::duration<double, std::milli> timeSyncPeriod_;
     std::chrono::duration<double, std::nano> timeSyncAccuracy_;
     std::chrono::duration<double, std::milli> retryDur_;
@@ -55,10 +56,9 @@ private:
 
     // Node enable
     std::atomic<bool> nodeEnableF_;
-    std::thread waitTh_;
-    bool stopWaitF_;
+    vehicle_interfaces::unique_thread waitTh_;
     bool enableFuncF_;
-    bool waitServiceF_;
+    bool exitF_;
 
 private:
     template <typename T>
@@ -75,6 +75,20 @@ private:
         return *ptr;
     }
 
+    template <typename T>
+    void _safeSharedPtrSave(std::shared_ptr<T> ptr, const T value, std::mutex& lock)
+    {
+        std::lock_guard<std::mutex> _lock(lock);
+        *ptr.get() = value;
+    }
+
+    template <typename T>
+    T _safeSharedPtrCall(const std::shared_ptr<T> ptr, std::mutex& lock)
+    {
+        std::lock_guard<std::mutex> _lock(lock);
+        return *ptr.get();
+    }
+
     /**
      * This function will be called only once and run under sub-thread while construction time.
     */
@@ -82,20 +96,24 @@ private:
     {
         try
         {
-            vehicle_interfaces::ConnToService(this->client_, this->stopWaitF_, std::chrono::milliseconds(5000), -1);
+            if (!vehicle_interfaces::ConnToService(this->client_, this->exitF_, std::chrono::milliseconds(5000), -1))
+            {
+                RCLCPP_ERROR(this->get_logger(), "[TimeSyncNode::_waitService] Failed to connect to service.");
+                return;
+            }
             this->enableFuncF_ = true;
 
-            while (!this->syncTime() && !this->stopWaitF_)
+            while (!this->syncTime())
                 std::this_thread::sleep_for(1000ms);
-            
+
             if (this->isSyncF_)
                 RCLCPP_WARN(this->get_logger(), "[TimeSyncNode::_waitService] Time synchronized.");
             else
                 RCLCPP_WARN(this->get_logger(), "[TimeSyncNode::_waitService] Time sync failed.");
-            
+
             if (this->timeSyncPeriod_ > 0s)
             {
-                this->timeSyncTimer_ = new Timer(this->timeSyncPeriod_.count(), std::bind(&TimeSyncNode::_timerCallback, this));
+                this->timeSyncTimer_ = std::make_shared<Timer>(this->timeSyncPeriod_.count(), std::bind(&TimeSyncNode::_timerCallback, this));
                 this->timeSyncTimer_->start();
             }
         }
@@ -138,12 +156,11 @@ public:
                     double timeSyncAccuracy_ms, 
                     bool timeSyncWaitService) : 
         rclcpp::Node(nodeName), 
-        waitServiceF_(timeSyncWaitService), 
         nodeEnableF_(false), 
         isSyncF_(false), 
         isCbFuncF_(false), 
-        stopWaitF_(false), 
-        enableFuncF_(false)
+        enableFuncF_(false), 
+        exitF_(false)
     {
         if (timeSyncServiceName == "")
         {
@@ -154,7 +171,7 @@ public:
         this->clientNode_ = rclcpp::Node::make_shared(nodeName + "_timesync_client");
         this->client_ = this->clientNode_->create_client<vehicle_interfaces::srv::TimeSync>(timeSyncServiceName);
 
-        this->correctDuration_ = new rclcpp::Duration(0, 0);
+        this->correctDuration_ = std::make_shared<rclcpp::Duration>(0, 0);
         this->timeStampType_ = vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
         this->timeSyncPeriod_ = std::chrono::duration<double, std::milli>(timeSyncPeriod_ms);
         this->timeSyncAccuracy_ = std::chrono::duration<double, std::nano>(timeSyncAccuracy_ms * 1000000.0);
@@ -162,24 +179,24 @@ public:
         this->retryDur_ = this->timeSyncPeriod_ * 0.1 > std::chrono::seconds(10) ? std::chrono::seconds(10) : this->timeSyncPeriod_ * 0.1;
         this->nodeEnableF_ = true;
 
-        if (this->waitServiceF_)// Wait until first timesync done.
+        if (timeSyncWaitService)// Wait until first timesync done.
         {
             this->_waitService();
         }
         else// Wait and sync service at background
         {
-            this->waitTh_ = std::thread(&TimeSyncNode::_waitService, this);
+            this->waitTh_ = vehicle_interfaces::make_unique_thread(&TimeSyncNode::_waitService, this);
         }
         RCLCPP_INFO(this->get_logger(), "[TimeSyncNode] Constructed.");
     }
 
     ~TimeSyncNode()
     {
-        this->enableFuncF_ = false;
-        this->stopWaitF_ = true;
+        if (this->exitF_)
+            return;
+        this->exitF_ = true;
 
-        if (!this->waitServiceF_)
-            this->waitTh_.join();
+        this->enableFuncF_ = false;
     }
 
     void addTimeSyncCallbackFunc(const std::function<void()>& func)
@@ -220,7 +237,7 @@ public:
                 if (this->timeStampType_ == vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC)
                     throw vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
 
-                this->_safeSave(this->correctDuration_, refTime - sendTime, this->correctDurationLock_);
+                this->_safeSharedPtrSave(this->correctDuration_, refTime - sendTime, this->correctDurationLock_);
                 this->isSyncF_ = true;
                 // RCLCPP_INFO(this->get_logger(), "[TimeSyncNode::syncTime] Time sync succeed.");
                 return true;
@@ -240,14 +257,14 @@ public:
     {
         if (!this->nodeEnableF_ || !this->enableFuncF_)
             return this->get_clock()->now();
-        return this->get_clock()->now() + this->_safeCall(this->correctDuration_, this->correctDurationLock_);
+        return this->get_clock()->now() + this->_safeSharedPtrCall(this->correctDuration_, this->correctDurationLock_);
     }
 
     rclcpp::Duration getCorrectDuration()
     {
         if (!this->nodeEnableF_ || !this->enableFuncF_)
             return rclcpp::Duration(0, 0);
-        return this->_safeCall(this->correctDuration_, this->correctDurationLock_);
+        return this->_safeSharedPtrCall(this->correctDuration_, this->correctDurationLock_);
     }
 
     inline uint8_t getTimestampType() const
@@ -263,7 +280,7 @@ public:
 class PseudoTimeSyncNode : virtual public rclcpp::Node
 {
 private:
-    rclcpp::Duration* correctDuration_;
+    std::shared_ptr<rclcpp::Duration> correctDuration_;
     std::atomic<uint8_t> timeStampType_;
 
     std::mutex correctDurationLock_;
@@ -283,12 +300,26 @@ private:
         return *ptr;
     }
 
+    template <typename T>
+    void _safeSharedPtrSave(std::shared_ptr<T> ptr, const T value, std::mutex& lock)
+    {
+        std::lock_guard<std::mutex> _lock(lock);
+        *ptr.get() = value;
+    }
+
+    template <typename T>
+    T _safeSharedPtrCall(const std::shared_ptr<T> ptr, std::mutex& lock)
+    {
+        std::lock_guard<std::mutex> _lock(lock);
+        return *ptr.get();
+    }
+
 public:
     PseudoTimeSyncNode(const std::string& nodeName) : 
         rclcpp::Node(nodeName), 
         timeStampType_(vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC)
     {
-        this->correctDuration_ = new rclcpp::Duration(0, 0);
+        this->correctDuration_ = std::make_shared<rclcpp::Duration>(0, 0);
         RCLCPP_INFO(this->get_logger(), "[PseudoTimeSyncNode] Constructed.");
     }
 
@@ -309,12 +340,12 @@ public:
 
     rclcpp::Time getTimestamp()
     {
-        return this->get_clock()->now() + this->_safeCall(this->correctDuration_, this->correctDurationLock_);
+        return this->get_clock()->now() + this->_safeSharedPtrCall(this->correctDuration_, this->correctDurationLock_);
     }
 
     rclcpp::Duration getCorrectDuration()
     {
-        return this->_safeCall(this->correctDuration_, this->correctDurationLock_);
+        return this->_safeSharedPtrCall(this->correctDuration_, this->correctDurationLock_);
     }
 
     inline uint8_t getTimestampType() const { return this->timeStampType_; }

@@ -16,6 +16,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "vehicle_interfaces/vehicle_interfaces.h"
+#include "vehicle_interfaces/timer.h"
 #include "vehicle_interfaces/utils.h"
 #include "vehicle_interfaces/msg_json.h"
 
@@ -33,9 +34,6 @@
 #include "vehicle_interfaces/srv/control_steering_wheel_reg.hpp"
 #include "vehicle_interfaces/srv/control_steering_wheel_req.hpp"
 
-#define SERVICE_REQUEST(T) std::shared_ptr<T::Request>
-#define SERVICE_RESPONSE(T) std::shared_ptr<T::Response>
-
 using namespace std::chrono_literals;
 
 
@@ -44,45 +42,18 @@ namespace vehicle_interfaces
 
 class BaseControllerServer : public rclcpp::Node
 {
-private:
-    std::shared_ptr<rclcpp::Node> controllerInfoRegClientNode_;// Client node for controller info registration.
-    rclcpp::Client<vehicle_interfaces::srv::ControllerInfoReg>::SharedPtr controllerInfoRegClient_;// Client to register controller info.
-    std::atomic<bool> availableF_;// Whether the controller is available.
+protected:
+    const vehicle_interfaces::msg::ControllerInfo cInfo_;// ControllerServer information.
 
 protected:
-    const vehicle_interfaces::msg::ControllerInfo cInfo_;
+    BaseControllerServer(const vehicle_interfaces::msg::ControllerInfo& cInfo) : 
+        rclcpp::Node(cInfo.node_name), 
+        cInfo_(cInfo) {}
 
 public:
-    BaseControllerServer(const vehicle_interfaces::msg::ControllerInfo& cInfo, const std::string& controlServiceName) : 
-        rclcpp::Node(cInfo.service_name), 
-        cInfo_(cInfo), 
-        availableF_(false)
-    {
-        this->controllerInfoRegClientNode_ = std::make_shared<rclcpp::Node>(cInfo.service_name + "_controlinforeg_client");
-        this->controllerInfoRegClient_ = this->controllerInfoRegClientNode_->create_client<vehicle_interfaces::srv::ControllerInfoReg>(controlServiceName + "_Reg");
-    }
+    vehicle_interfaces::msg::ControllerInfo getInfo() const { return this->cInfo_; }
 
-    bool registerControllerInfo()
-    {
-        auto request = std::make_shared<vehicle_interfaces::srv::ControllerInfoReg::Request>();
-        request->request = this->cInfo_;
-        auto result = this->controllerInfoRegClient_->async_send_request(request);
-#if ROS_DISTRO == 0
-        if (rclcpp::spin_until_future_complete(this->controllerInfoRegClientNode_, result, 200ms) == rclcpp::executor::FutureReturnCode::SUCCESS)
-#else
-        if (rclcpp::spin_until_future_complete(this->controllerInfoRegClientNode_, result, 200ms) == rclcpp::FutureReturnCode::SUCCESS)
-#endif
-        {
-            auto response = result.get();
-            if (response->response)
-            {
-                this->availableF_ = true;
-                return this->availableF_;
-            }
-        }
-        this->availableF_ = false;
-        return false;
-    }
+    virtual void close() = 0;
 };
 
 template <typename serviceT, typename topicT, typename controlT>
@@ -94,11 +65,13 @@ private:
     std::atomic<uint64_t> reqServerFrameId_;// The counter of service response.
 
     std::shared_ptr<rclcpp::Publisher<topicT> > pub_;// Publisher to publish control signal.
-    vehicle_interfaces::Timer* pubTm_;// Timer to publish control signal.
+    std::shared_ptr<vehicle_interfaces::Timer> pubTm_;// Timer to publish control signal.
     std::atomic<uint64_t> pubFrameId_;// The counter of control signal published.
 
     controlT msg_;// Control signal.
     std::mutex msgLock_;// Lock msg_.
+
+    std::atomic<bool> exitF_;// Whether the controller is closed.
     
 private:
     template <typename T>
@@ -118,7 +91,7 @@ private:
     /**
      * (Sub-thread) Service callback function to response control signal.
      */
-    void _reqServerCbFunc(const SERVICE_REQUEST(serviceT) request, SERVICE_RESPONSE(serviceT) response)
+    void _reqServerCbFunc(const std::shared_ptr<typename serviceT::Request> request, std::shared_ptr<typename serviceT::Response> response)
     {
         RCLCPP_ERROR(this->get_logger(), "[ControllerServer::_reqServerCbFunc] Function template not specialized.");
     }
@@ -131,7 +104,7 @@ private:
     {
         msg.priority = vehicle_interfaces::msg::Header::PRIORITY_CONTROL;
         msg.device_type = vehicle_interfaces::msg::Header::DEVTYPE_STEERINGWHEEL;
-        msg.device_id = this->cInfo_.service_name;
+        msg.device_id = this->cInfo_.node_name;
         msg.frame_id = this->pubFrameId_++;
         msg.stamp_type = vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
         msg.stamp = this->get_clock()->now();
@@ -149,11 +122,22 @@ private:
     }
 
 public:
-    ControllerServer(const vehicle_interfaces::msg::ControllerInfo& cInfo, const std::string& controlServiceName) : 
-        BaseControllerServer(cInfo, controlServiceName), 
-        pubTm_(nullptr), 
+    /**
+     * ControllerServer constructor.
+     * @param[in] cInfo ControllerServer information.
+     * @note The ControllerServer will be created according to the information in cInfo.
+     * @note - The ControllerServer node name will be cInfo.node_name.
+     * @note - The ControllerServer service name or topic name will be cInfo.service_name.
+     * @note - The ControllerServer will response control signal through service or topic according to cInfo.controller_mode.
+     * @note - The ControllerServer will publish control signal through topic according to cInfo.pub_type.
+     * @note - The ControllerServer will publish control signal with period cInfo.period_ms.
+     * @note - The control signal type will be ControlChassis or ControlSteeringWheel according to cInfo.msg_type.
+     */
+    ControllerServer(const vehicle_interfaces::msg::ControllerInfo& cInfo) : 
+        BaseControllerServer(cInfo), 
         reqServerFrameId_(0), 
-        pubFrameId_(0)
+        pubFrameId_(0), 
+        exitF_(false)
     {
         if (cInfo.controller_mode == vehicle_interfaces::msg::ControllerInfo::CONTROLLER_MODE_SERVICE)
         {
@@ -162,23 +146,18 @@ public:
         }
 
         if (cInfo.controller_mode == vehicle_interfaces::msg::ControllerInfo::CONTROLLER_MODE_TOPIC || 
-            cInfo.pub_type == vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_CONTROLLER || 
+            cInfo.pub_type == vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_CONTROLLER_SERVER || 
             cInfo.pub_type == vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_BOTH)
         {
             this->pub_ = this->create_publisher<topicT>(cInfo.service_name, 10);
-            this->pubTm_ = new vehicle_interfaces::Timer(cInfo.period_ms, std::bind(&ControllerServer::_publish, this));
+            this->pubTm_ = std::make_shared<vehicle_interfaces::Timer>(cInfo.period_ms, std::bind(&ControllerServer::_publish, this));
             this->pubTm_->start();
         }
     }
 
     ~ControllerServer()
     {
-        // Destroy publisher timer.
-        if (this->pubTm_ != nullptr)
-        {
-            this->pubTm_->destroy();
-            delete this->pubTm_;
-        }
+        this->close();
     }
 
     /**
@@ -188,6 +167,16 @@ public:
     void setControlSignal(const controlT& msg)
     {
         this->_safeSave(&this->msg_, msg, this->msgLock_);// Save control signal to be published.
+    }
+
+    void close()
+    {
+        if (this->exitF_)// Ignore process if called repeatedly.
+            return;
+        this->exitF_ = true;
+
+        if (this->pubTm_)
+            this->pubTm_->destroy();
     }
 };
 
@@ -201,8 +190,8 @@ void ControllerServer<
     vehicle_interfaces::msg::Chassis, 
     vehicle_interfaces::msg::ControlChassis
 >
-::_reqServerCbFunc(const SERVICE_REQUEST(vehicle_interfaces::srv::ControlChassisReq) request, 
-                    SERVICE_RESPONSE(vehicle_interfaces::srv::ControlChassisReq) response)
+::_reqServerCbFunc(const std::shared_ptr<vehicle_interfaces::srv::ControlChassisReq::Request> request, 
+                    std::shared_ptr<vehicle_interfaces::srv::ControlChassisReq::Response> response)
 {
     // RCLCPP_INFO(this->get_logger(), "[ControllerServer::_reqServerCbFunc] Received request.");
     std::lock_guard<std::mutex> reqServerLocker(this->reqServerLock_);// Restrict only one callback at a time.
@@ -241,8 +230,8 @@ void ControllerServer<
     vehicle_interfaces::msg::SteeringWheel, 
     vehicle_interfaces::msg::ControlSteeringWheel
 >
-::_reqServerCbFunc(const SERVICE_REQUEST(vehicle_interfaces::srv::ControlSteeringWheelReq) request, 
-                    SERVICE_RESPONSE(vehicle_interfaces::srv::ControlSteeringWheelReq) response)
+::_reqServerCbFunc(const std::shared_ptr<vehicle_interfaces::srv::ControlSteeringWheelReq::Request> request, 
+                    std::shared_ptr<vehicle_interfaces::srv::ControlSteeringWheelReq::Response> response)
 {
     // RCLCPP_INFO(this->get_logger(), "[ControllerServer::_reqServerCbFunc] Received request.");
     std::lock_guard<std::mutex> reqServerLocker(this->reqServerLock_);// Restrict only one callback at a time.
@@ -274,29 +263,37 @@ void ControllerServer<
 
 class BaseControllerClient : public rclcpp::Node
 {
+protected:
+    const std::string nodeName_;
+    const vehicle_interfaces::msg::ControllerInfo cInfo_;// Registered ControllerServer information.
+
+protected:
+    BaseControllerClient(const std::string& nodeName, const vehicle_interfaces::msg::ControllerInfo& cInfo) : 
+        rclcpp::Node(nodeName), 
+        nodeName_(nodeName), 
+        cInfo_(cInfo) {}
+
 public:
-    BaseControllerClient(const std::string& nodeName) : rclcpp::Node(nodeName) {}
-    virtual void close() = 0;
-    virtual vehicle_interfaces::msg::ControllerInfo getInfo() const = 0;
+    vehicle_interfaces::msg::ControllerInfo getInfo() const { return this->cInfo_; }
+
     virtual bool getSignal(vehicle_interfaces::msg::ControlChassis& outSignal, std::chrono::high_resolution_clock::time_point& outTimestamp) = 0;
+
+    virtual void close() = 0;
 };
 
 template <typename serviceT, typename topicT, typename controlT>
 class ControllerClient : public BaseControllerClient
 {
 private:
-    const vehicle_interfaces::msg::ControllerInfo cInfo_;
-
     std::shared_ptr<rclcpp::Node> clientNode_;// Node for client.
     std::shared_ptr<rclcpp::Client<serviceT> > reqClient_;// Client to request control signal.
-    vehicle_interfaces::Timer* reqClientTm_;// Call _reqClientTmCbFunc().
+    std::shared_ptr<vehicle_interfaces::Timer> reqClientTm_;// Call _reqClientTmCbFunc().
     std::chrono::duration<float, std::milli> serviceTimeout_;// Timeout for service request.
 
     std::shared_ptr<rclcpp::Subscription<topicT> > sub_;// Subscription to receive control signal.
 
-    std::shared_ptr<rclcpp::Node> pubNode_;// Node for publisher.
     std::shared_ptr<rclcpp::Publisher<topicT> > pub_;// Publisher to publish control signal.
-    vehicle_interfaces::Timer* pubTm_;// Timer to publish control signal.
+    std::shared_ptr<vehicle_interfaces::Timer> pubTm_;// Timer to publish control signal.
     controlT pubMsg_;// Control signal to be published.
     std::atomic<uint64_t> pubFrameId_;// The counter of control signal published.
     std::mutex pubMsgLock_;// Lock pubMsg_.
@@ -366,7 +363,7 @@ private:
     {
         msg.priority = vehicle_interfaces::msg::Header::PRIORITY_CONTROL;
         msg.device_type = vehicle_interfaces::msg::Header::DEVTYPE_STEERINGWHEEL;
-        msg.device_id = this->cInfo_.service_name;
+        msg.device_id = this->nodeName_;
         msg.frame_id = this->pubFrameId_++;
         msg.stamp_type = vehicle_interfaces::msg::Header::STAMPTYPE_NO_SYNC;
         msg.stamp = this->get_clock()->now();
@@ -375,25 +372,33 @@ private:
     }
 
 public:
-    ControllerClient(const vehicle_interfaces::msg::ControllerInfo& cInfo) : 
-        BaseControllerClient(cInfo.service_name + "_controllerclient"),
-        cInfo_(cInfo), 
-        reqClientTm_(nullptr), 
-        pubTm_(nullptr), 
+    /**
+     * ControllerClient constructor.
+     * @param[in] nodeName Node name for ControllerClient.
+     * @param[in] cInfo ControllerServer information.
+     * @note The ControllerClient will be created according to the information in cInfo.
+     * @note - The ControllerClient node name will be nodeName.
+     * @note - The ControllerClient will request control signal through service or topic according to cInfo.controller_mode.
+     * @note - The service name or topic name will be cInfo.service_name.
+     * @note - If cInfo.controller_mode set to CONTROLLER_MODE_SERVICE, the request period should be set in cInfo.period_ms.
+     * @note - If cInfo.controller_mode set to CONTROLLER_MODE_SERVICE, create client node with node name `nodeName + "_cli"`.
+     * @note - If cInfo.pub_type set to PUB_TYPE_CONTROLLER_CLIENT or PUB_TYPE_BOTH, create publisher with topic name `nodeName`.
+     */
+    ControllerClient(const std::string& nodeName, const vehicle_interfaces::msg::ControllerInfo& cInfo) : 
+        BaseControllerClient(nodeName, cInfo), 
         pubFrameId_(0), 
         cvtFuncF_(false), 
         interruptFuncF_(false), 
         availableF_(false), 
         exitF_(false)
     {
-        std::string nodeName = cInfo.service_name + "_controllerclient";
         if (cInfo.controller_mode == vehicle_interfaces::msg::ControllerInfo::CONTROLLER_MODE_SERVICE)
         {
             this->serviceTimeout_ = std::chrono::duration<float, std::milli>(cInfo.timeout_ms);
-            this->clientNode_ = std::make_shared<rclcpp::Node>(nodeName + "_client");
+            this->clientNode_ = std::make_shared<rclcpp::Node>(nodeName + "_cli");
             this->reqClient_ = this->clientNode_->create_client<serviceT>(cInfo.service_name);
             // Create timer.
-            this->reqClientTm_ = new vehicle_interfaces::Timer(cInfo.period_ms, std::bind(&ControllerClient::_reqClientTmCbFunc, this));
+            this->reqClientTm_ = std::make_shared<vehicle_interfaces::Timer>(cInfo.period_ms, std::bind(&ControllerClient::_reqClientTmCbFunc, this));
             this->reqClientTm_->start();
         }
         else if (cInfo.controller_mode == vehicle_interfaces::msg::ControllerInfo::CONTROLLER_MODE_TOPIC)
@@ -407,12 +412,11 @@ public:
             return;
         }
 
-        if (cInfo.pub_type == vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_CONTROLSERVER || 
+        if (cInfo.pub_type == vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_CONTROLLER_CLIENT || 
             cInfo.pub_type == vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_BOTH)
         {
-            this->pubNode_ = std::make_shared<rclcpp::Node>(cInfo.service_name + "_controllerclient_pub");
-            this->pub_ = this->pubNode_->create_publisher<topicT>(cInfo.service_name + "_controllerclient", 10);
-            this->pubTm_ = new vehicle_interfaces::Timer(cInfo.period_ms, std::bind(&ControllerClient::_publish, this));
+            this->pub_ = this->create_publisher<topicT>(nodeName, 10);
+            this->pubTm_ = std::make_shared<vehicle_interfaces::Timer>(cInfo.period_ms, std::bind(&ControllerClient::_publish, this));
             this->pubTm_->start();
         }
         this->availableF_ = true;
@@ -431,18 +435,11 @@ public:
         if (this->exitF_)// Ignore process if called repeatedly.
             return;
         this->exitF_ = true;// All looping process will be braked if exitF_ set to true.
-        // Destroy publisher timer.
-        if (this->pubTm_ != nullptr)
-        {
-            this->pubTm_->destroy();
-            delete this->pubTm_;
-        }
-        // Destroy client timer.
-        if (this->reqClientTm_ != nullptr)
-        {
+
+        if (this->reqClientTm_)
             this->reqClientTm_->destroy();
-            delete this->reqClientTm_;
-        }
+        if (this->pubTm_)
+            this->pubTm_->destroy();
     }
 
     /**
@@ -465,15 +462,6 @@ public:
     {
         this->interruptFunc_ = interruptFunc;
         this->interruptFuncF_ = true;
-    }
-
-    /**
-     * Get ControllerInfo for this ControllerClient.
-     * @return ControllerInfo message.
-     */
-    vehicle_interfaces::msg::ControllerInfo getInfo() const
-    {
-        return this->cInfo_;
     }
 
     /**

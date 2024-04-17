@@ -12,7 +12,7 @@ namespace vehicle_interfaces
 class VehicleServiceNode : public DevInfoNode, public QoSUpdateNode, public SafetyNode, public TimeSyncNode
 {
 public:
-    VehicleServiceNode(const std::shared_ptr<GenericParams>& gParams) : 
+    VehicleServiceNode(const std::shared_ptr<GenericParams> gParams) : 
         DevInfoNode(gParams->nodeName, gParams->devInfoService, gParams->devInterface, gParams->devMultiNode), 
         QoSUpdateNode(gParams->nodeName, gParams->qosService, gParams->qosDirPath), 
         SafetyNode(gParams->nodeName, gParams->safetyService), 

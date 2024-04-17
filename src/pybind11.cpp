@@ -1,24 +1,22 @@
-#include "../include/vehicle_interfaces/timesync.h"
-
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/functional.h>
 
+#include "vehicle_interfaces/timer.h"
+
 namespace py = pybind11;
 
-PYBIND11_MODULE(utils, m)
+PYBIND11_MODULE(cpplib, m)
 {
     m.doc() = "vehicle_interfaces package built from pybind11";
 
-    py::class_<Timer>(m, "Timer")
-        .def(py::init<int, const std::function<void()>&>())
-        .def("start", &Timer::start, "Start timer")
-        .def("stop", &Timer::stop, "Stop timer")
-        .def("destroy", &Timer::destroy, "Destroy timer");
-    
-    // py::class_<rclcpp::Node, std::shared_ptr<rclcpp::Node>>(m, "Node");
-    // py::class_<TimeSyncNode, std::shared_ptr<TimeSyncNode>, rclcpp::Node>(m, "TimeSyncNode", py::multiple_inheritance())
-    //     .def(py::init<const std::string&, std::string, int>())
-    //     .def("syncTime", &TimeSyncNode::syncTime, "Sync time")
-    //     .def("getTimestamp", &TimeSyncNode::getTimestamp, "Get timestamp");
+    py::class_<vehicle_interfaces::LiteTimer>(m, "Timer")
+        .def(py::init<int, const std::function<void()>&, bool>())
+        .def("start", &vehicle_interfaces::LiteTimer::start, "Start timer")
+        .def("stop", &vehicle_interfaces::LiteTimer::stop, "Stop timer")
+        .def("setPeriod", &vehicle_interfaces::LiteTimer::setPeriod, "Set timer period", py::arg("period"))
+        .def("destroy", &vehicle_interfaces::LiteTimer::destroy, "Destroy timer");
+
+    m.def("make_shared_timer", &vehicle_interfaces::make_shared_timer, "Create shared timer", py::arg("period_ms"), py::arg("callback"), py::arg("MAX_SCHED_RR") = false);
+    m.def("make_unique_timer", &vehicle_interfaces::make_unique_timer, "Create unique timer", py::arg("period_ms"), py::arg("callback"), py::arg("MAX_SCHED_RR") = false);
 }

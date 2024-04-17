@@ -1,3 +1,7 @@
+# Controller information
+
+######## Definitions ########
+
 # The message type that controller will be sent.
 uint8 MSG_TYPE_STEERING_WHEEL = 0
 uint8 MSG_TYPE_CHASSIS = 1
@@ -10,9 +14,13 @@ uint8 CONTROLLER_MODE_SERVICE = 1
 
 # Publish setting.
 uint8 PUB_TYPE_NONE = 0
-uint8 PUB_TYPE_CONTROLLER = 1
-uint8 PUB_TYPE_CONTROLSERVER = 2
+uint8 PUB_TYPE_CONTROLLER_CLIENT = 1
+uint8 PUB_TYPE_CONTROLLER_SERVER = 2
 uint8 PUB_TYPE_BOTH = 3
+
+
+######## Variables ########
+
 
 # Set to MSG_TYPE_STEERING_WHEEL or MSG_TYPE_CHASSIS
 uint8 msg_type 0
@@ -20,7 +28,10 @@ uint8 msg_type 0
 # Set to CONTROLLER_MODE_TOPIC or CONTROLLER_MODE_SERVICE
 uint8 controller_mode 0
 
-# Add service_name to control list
+# The node name of controller
+string node_name
+
+# The service name of controller
 string service_name
 
 # Reference timeout in ms

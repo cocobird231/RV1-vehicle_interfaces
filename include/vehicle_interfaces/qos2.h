@@ -5,6 +5,7 @@
 
 #include "vehicle_interfaces/interactive_publisher.h"
 #include "vehicle_interfaces/interactive_subscription.h"
+#include "vehicle_interfaces/timer.h"
 #include "vehicle_interfaces/utils.h"
 
 #include "vehicle_interfaces/msg/id_table.hpp"
@@ -434,7 +435,7 @@ private:
     std::map<std::string, std::pair<vehicle_interfaces::msg::TopicDeviceInfo, bool> > topicDevInfoStatusMap_;// The map to store the topic device information and the registration status by the node name.
     std::mutex topicDevStatusMapMutex_;// The mutex to lock the topic device status map.
     std::condition_variable topicDevStatusMapCV_;// The condition variable to notify the topic device status map change.
-    std::thread* topicDevInfoRegTh_;// The thread to register the topic device information to the QoSServer. This thread runs the _topicDevInfoRegTh() function.
+    vehicle_interfaces::unique_thread topicDevInfoRegTh_;// The thread to register the topic device information to the QoSServer. This thread runs the _topicDevInfoRegTh() function.
     std::atomic<bool> stopTopicDevInfoRegThF_;// Flag to stop the topic device registration thread.
 
     rclcpp::Subscription<vehicle_interfaces::msg::IDTable>::SharedPtr topicDevInfoRegSub_;// The subscription to the QoSServer topic device registration topic.
@@ -602,7 +603,6 @@ public:
         rclcpp::Node(nodeName), 
         qosServiceName_(qosServiceName), 
         qosDirPath_(qosDirPath), 
-        topicDevInfoRegTh_(nullptr), 
         stopTopicDevInfoRegThF_(false), 
         nodeEnableF_(false), 
         exitF_(false)
@@ -621,7 +621,7 @@ public:
 
         this->topicDevInfoRegClientNode_ = rclcpp::Node::make_shared(nodeName + "_qos_topic_device_info_reg_client");
         this->topicDevInfoRegClient_ = this->topicDevInfoRegClientNode_->create_client<vehicle_interfaces::srv::TopicDeviceInfoReg>(this->qosServiceName_);
-        this->topicDevInfoRegTh_ = new std::thread(&QoSNode::_topicDevInfoRegTh, this);
+        this->topicDevInfoRegTh_ = vehicle_interfaces::make_unique_thread(&QoSNode::_topicDevInfoRegTh, this);
 
         // Subscribe the QoS registration topic.
         // This topic is used to receive the registered topic device information from the QoSServer.
@@ -633,11 +633,6 @@ public:
     ~QoSNode()
     {
         this->exitF_ = true;
-        if (this->topicDevInfoRegTh_ != nullptr)
-        {
-            this->topicDevInfoRegTh_->join();
-            delete this->topicDevInfoRegTh_;
-        }
     }
 
     /**
