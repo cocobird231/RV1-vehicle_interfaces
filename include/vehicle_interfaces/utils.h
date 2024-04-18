@@ -19,6 +19,10 @@
 
 #include "rclcpp/rclcpp.hpp"
 
+#ifndef ROS_DISTRO// 0: eloquent, 1: foxy, 2: humble
+#define ROS_DISTRO 1
+#endif
+
 // Ref: https://stackoverflow.com/a/55475023
 #ifndef __has_include
   static_assert(false, "__has_include not supported");
