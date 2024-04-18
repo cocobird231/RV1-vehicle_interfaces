@@ -91,14 +91,6 @@ set(srv_files
 SET(PYLIB False CACHE BOOL "Some user-specified option")
 if( PYLIB ) 
 
-if($ENV{ROS_DISTRO} STREQUAL "foxy")
-  add_compile_options(-DROS_DISTRO=1)
-elseif($ENV{ROS_DISTRO} STREQUAL "humble")
-  add_compile_options(-DROS_DISTRO=2)
-else()# eloquent
-  add_compile_options(-DROS_DISTRO=0)
-endif()
-
 find_package(Python COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG REQUIRED)
 find_package(${PROJECT_NAME} REQUIRED)
@@ -115,10 +107,25 @@ ament_target_dependencies(cpplib rclcpp vehicle_interfaces pybind11)
 
 set_target_properties(cpplib PROPERTIES PREFIX "")
 
-install(
- TARGETS cpplib
- DESTINATION "${PYTHON_INSTALL_DIR}/${PROJECT_NAME}"
-)
+if($ENV{ROS_DISTRO} STREQUAL "foxy")
+  add_compile_options(-DROS_DISTRO=1)
+  install(
+    TARGETS cpplib
+    DESTINATION lib/python3.8/site-packages/${PROJECT_NAME}
+   )
+elseif($ENV{ROS_DISTRO} STREQUAL "humble")
+  add_compile_options(-DROS_DISTRO=2)
+  install(
+    TARGETS cpplib
+    DESTINATION local/lib/python3.10/dist-packages/${PROJECT_NAME}
+   )
+else()# eloquent
+  add_compile_options(-DROS_DISTRO=0)
+  install(
+  TARGETS cpplib
+  DESTINATION lib/python3.6/site-packages/${PROJECT_NAME}
+  )
+endif()
 
 else()
 
