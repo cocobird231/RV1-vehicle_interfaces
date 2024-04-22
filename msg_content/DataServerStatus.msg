@@ -14,7 +14,7 @@
 ### Priority: STOP -> STRAT -> SET_TIMER -> SET_PERIOD -> NONE. The server will only execute one action per request.
 uint8 SERVER_ACTION_NONE = 0
 uint8 SERVER_ACTION_STOP = 1
-uint8 SERVER_ACTION_STRAT = 2
+uint8 SERVER_ACTION_START = 2
 uint8 SERVER_ACTION_SET_TIMER = 4
 uint8 SERVER_ACTION_SET_PERIOD = 8
 
