@@ -158,8 +158,7 @@ public:
             return;
         this->noPoolF_ = false;// Can be added to TimerPool.
         this->enableF_ = false;
-        if (this->tmTh_ && this->tmTh_->joinable())
-            this->tmTh_->join();
+        this->tmTh_.reset();// Destruct the thread.
     }
 
     /**
