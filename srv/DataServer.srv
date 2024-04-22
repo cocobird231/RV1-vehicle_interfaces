@@ -1,5 +1,5 @@
-# Control server control signal
-ControlServerStatus request
+# Data server control signal
+DataServerStatus request
 
 ---
 # response true if value accepted, otherwise server ignore the request and response false.
@@ -8,5 +8,5 @@ bool response
 # If <response> response flase, describes the reason.
 string reason
 
-# Response current control server status.
-ControlServerStatus status
+# Response current data server status.
+DataServerStatus status

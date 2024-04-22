@@ -1,4 +1,4 @@
-# Control signal for Control Server.
+# Control signal for control server.
 
 ######## Definitions ########
 
@@ -16,10 +16,10 @@ uint8 CONTROLLER_ACTION_REMOVE = 2
 
 # Control server behavior.
 
-## The action of Control Server.
-### NONE: No action for Control Server.
-### SET_TIMER: Set Control Server timer status, including output, safety check, idclient check and publish timers.
-### SET_PERIOD: Set Control Server timer periods, including output, safety check, idclient check and publish timers.
+## The action of control server.
+### NONE: No action for control server.
+### SET_TIMER: Set control server timer status, including output, safety check, idclient check and publish timers.
+### SET_PERIOD: Set control server timer periods, including output, safety check, idclient check and publish timers.
 uint8 SERVER_ACTION_NONE = 0
 uint8 SERVER_ACTION_SET_TIMER = 1
 uint8 SERVER_ACTION_SET_PERIOD = 2
@@ -57,10 +57,10 @@ uint8 controller_action 0
 string controller_service_name
 
 
-# Control Server behavior.
+# Control server behavior.
 
 ## Set to SERVER_ACTION_XXX.
-### The Control Server will ignored set timer status and period actions if set to NONE.
+### The control server will ignored set timer status and period actions if set to NONE.
 ### If multiple actions need to be configured, use 'or' operator to combine the SERVER_ACTION_XXX.
 uint8 server_action 0
 
