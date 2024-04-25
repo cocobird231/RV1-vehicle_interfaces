@@ -4,6 +4,79 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+
+---
+
+
+## [Unreleased] - 2024-04-25
+
+- Update lock and thread mechanism for `devinfo.h` and `qos.h`.
+- Add `msg_show` namespace under `msg_json.h`.
+- Update `HierarchicalPrint` under `utils.h`.
+
+### Added
+- `msg_json.h` add `msg_show` namespace, support message to `Hierarchical` object.
+    - Point2d
+    - MappingData
+    - MotorValueRange
+    - ChassisInfo
+    - ControllerInfo
+    - ControlServerStatus
+    - DataServerStatus
+
+### Changed
+- `HierarchicalPrint` support `std::ostream& operator<<`, ex:
+    ```cpp
+    auto pt = vehicle_interfaces::msg::Point2d();
+    pt.x = 1.0;
+    pt.y = 2.0;
+    std::cout << "Point2d: " << vehicle_interfaces::msg_show::Point2d::hprint(pt) << std::endl;
+    // Expected output: 
+    // ---<Point2d>
+    //    |--x: 1.0
+    //    \__y: 2.0
+    ```
+- `HierarchicalPrint` support combination:
+    - Concat two `Hierarchical` with `<<` operator:
+        ```cpp
+        HierarchicalPrint hp;
+        hp.push(0, "root");
+        hp.push(1, "child1");
+        hp.push(2, "child1-1");
+        hp.push(1, "child2");
+        HierarchicalPrint hp2;
+        hp2.push(1, "child3");
+        hp2.push(2, "child3-1");
+        hp2.push(1, "child4");
+        hp << hp2;
+        std::cout << hp << std::endl;
+        // Expected output:
+        // ---<root>
+        //    |--child1
+        //    |  \__child1-1
+        //    |--child2
+        //    |--child3
+        //    |  \__child3-1
+        //    \__child4
+        ```
+    - Concat `Hierarchical` with `append()` can specify the level:
+        ```cpp
+        hp.append(2, hp2);
+        std::cout << hp << std::endl;
+        // Expected output:
+        // ---<root>
+        //    |--child1
+        //    |  \__child1-1
+        //    \__child2
+        //       |--child3
+        //       |  \__child3-1
+        //       \__child4
+        ```
+
+
+---
+
+
 ## [Unreleased] - 2024-04-22
 
 - Rename `ControlServer.msg` to `ControlServerStatus.msg` to avoid confliction under Matlab ROS2 toolbox.
@@ -34,6 +107,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 - The `LiteTimer` can now be restarted after stopping.
 
+
+---
 
 
 ## [Unreleased] - 2024-04-17

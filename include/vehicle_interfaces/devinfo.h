@@ -131,7 +131,7 @@ private:
     // QoS Service Definition
     std::shared_ptr<rclcpp::Node> regClientNode_;// DevInfoReg service node
     rclcpp::Client<vehicle_interfaces::srv::DevInfoReg>::SharedPtr regClient_;// DevInfoReg service client
-    std::thread waitTh_;
+    vehicle_interfaces::unique_thread waitTh_;
     std::mutex regClientLock_;
 
     // Device info
@@ -276,12 +276,12 @@ public:
             RCLCPP_WARN(this->get_logger(), "[DevInfoNode] Ignored.");
             return;
         }
-        
+
         this->regClientNode_ = rclcpp::Node::make_shared(nodeName + "_devinforeg_client");
         this->regClient_ = this->regClientNode_->create_client<vehicle_interfaces::srv::DevInfoReg>(devInfoServiceName + "_Reg");
         this->nodeEnableF_ = true;
 
-        this->waitTh_ = std::thread(&DevInfoNode::_waitService, this);
+        this->waitTh_ = vehicle_interfaces::make_unique_thread(&DevInfoNode::_waitService, this);
         RCLCPP_INFO(this->get_logger(), "[DevInfoNode] Constructed.");
     }
 
@@ -289,7 +289,7 @@ public:
     {
         this->enableFuncF_ = false;
         this->stopWaitF_ = true;
-        this->waitTh_.join();
+        this->waitTh_.reset();
     }
 
     bool regDevInfo()

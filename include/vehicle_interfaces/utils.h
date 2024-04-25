@@ -73,35 +73,17 @@ shared_thread make_shared_thread(F&& f, args&&... a)
 class HierarchicalPrint
 {
 private:
-    uint16_t maxHierarchy_;
-    std::deque<std::pair<uint16_t, std::string> > que_;
+    int maxHierarchy_;
+    std::deque<std::pair<int, std::string> > que_;
 
-public:
-    HierarchicalPrint() : maxHierarchy_(0) {}
-
-    void push(const uint16_t hierarchy, const std::string& str)
+private:
+    std::string _getHierarchyStr()
     {
-        this->que_.push_back({ hierarchy, str });
-        this->maxHierarchy_ = std::max(this->maxHierarchy_, hierarchy);
-    }
-
-    void push(const uint16_t hierarchy, const char* fmt, ...)
-    {
-        char printBuf[1024];
-        va_list args;
-        va_start(args, fmt);
-        vsprintf(printBuf, fmt, args);
-        va_end(args);
-        this->que_.push_back({ hierarchy, printBuf });
-        this->maxHierarchy_ = std::max(this->maxHierarchy_, hierarchy);
-    }
-
-    void print()
-    {
-        std::vector<uint16_t> level(this->maxHierarchy_ + 1, 0);
+        std::vector<int> level(this->maxHierarchy_ + 1, 0);
+        std::deque<std::string> printQue;
 
         // Search the hierarchy level from the end of the queue.
-        for (std::deque<std::pair<uint16_t, std::string> >::reverse_iterator it{this->que_.rbegin()}; it != this->que_.rend(); ++it)
+        for (std::deque<std::pair<int, std::string> >::reverse_iterator it{this->que_.rbegin()}; it != this->que_.rend(); ++it)
         {
             const auto& [hierarchy, str] = *it;
             bool changeF = level[hierarchy] == 0;// If the hierarchy level appears for the first time, change the symbol.
@@ -125,13 +107,72 @@ public:
             }
             for (int j = hierarchy + 1; j < level.size(); j++)// Reset the hierarchy level after the current hierarchy level.
                 level[j] = 0;
-            (*it).second = hierarchyStr + str;// Add the hierarchy prefix string to the message.
+            printQue.emplace_front(hierarchyStr + str);// Add the hierarchy prefix string to the message.
         }
-        for (const auto& i : this->que_)// Print the message with the hierarchy prefix string.
-            printf("%s\n", i.second.c_str());
+        std::string ret = "";
+        for (const auto& i : printQue)// Combine the message with the hierarchy prefix string.
+            ret += i + "\n";
+        return ret;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, HierarchicalPrint &hp)
+    {
+        os << hp._getHierarchyStr();
+        return os;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, HierarchicalPrint&& hp)
+    {
+        os << hp._getHierarchyStr();
+        return os;
+    }
+
+public:
+    HierarchicalPrint() : maxHierarchy_(0) {}
+
+    HierarchicalPrint(HierarchicalPrint&& hp) : maxHierarchy_(hp.maxHierarchy_), que_(std::move(hp.que_)) {}
+
+    void push(const int hierarchy, const std::string& str)
+    {
+        this->que_.push_back({ hierarchy, str });
+        this->maxHierarchy_ = std::max(this->maxHierarchy_, hierarchy);
+    }
+
+    void push(const int hierarchy, const char* fmt, ...)
+    {
+        char printBuf[1024];
+        va_list args;
+        va_start(args, fmt);
+        vsprintf(printBuf, fmt, args);
+        va_end(args);
+        this->que_.push_back({ hierarchy, printBuf });
+        this->maxHierarchy_ = std::max(this->maxHierarchy_, hierarchy);
+    }
+
+    void append(const int startHierarchy, const HierarchicalPrint& hp)
+    {
+        int hpMinHierarchy = hp.maxHierarchy_;
+        for (const auto& [hierarchy, str] : hp.que_)
+            hpMinHierarchy = std::min(hpMinHierarchy, hierarchy);
+        for (const auto& [hierarchy, str] : hp.que_)
+            this->que_.push_back({ hierarchy - hpMinHierarchy + startHierarchy, str });
+        this->maxHierarchy_ = std::max(this->maxHierarchy_, hp.maxHierarchy_ + startHierarchy - hpMinHierarchy);
+    }
+
+    void print()
+    {
+        std::cout << this->_getHierarchyStr();
     }
 
     void clear() { this->que_.clear(); }
+
+    HierarchicalPrint& operator<<(HierarchicalPrint& hp)
+    {
+        for (const auto& [hierarchy, str] : hp.que_)
+            this->que_.push_back({ hierarchy, str });
+        this->maxHierarchy_ = std::max(this->maxHierarchy_, hp.maxHierarchy_);
+        return *this;
+    }
 };
 
 template<typename T>

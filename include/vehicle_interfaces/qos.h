@@ -379,7 +379,7 @@ private:
     std::function<void(QoSMap)> qosCallbackFunc_;
 
     // QoS file path
-    fs::path qosDirPath_;
+    const fs::path qosDirPath_;
 
     // Node enable
     std::atomic<bool> nodeEnableF_;
@@ -397,21 +397,21 @@ private:
         
         std::vector<std::string> topicVec;
 
-        std::unique_lock<std::mutex> locker(this->subscriptionLock_, std::defer_lock);
-        locker.lock();
-        for (auto& myTopic : this->qosTopicNameVec_)
         {
-            for (auto& newTopic : msg->topic_table)
+            std::lock_guard<std::mutex> lk(this->subscriptionLock_);
+            for (auto& myTopic : this->qosTopicNameVec_)
             {
-                if (myTopic == newTopic)
+                for (auto& newTopic : msg->topic_table)
                 {
-                    topicVec.push_back(myTopic);
-                    break;
+                    if (myTopic == newTopic)
+                    {
+                        topicVec.push_back(myTopic);
+                        break;
+                    }
                 }
             }
         }
-        locker.unlock();
-        
+
         QoSMap qmap;
         for (const auto& topic : topicVec)
         {
@@ -429,8 +429,8 @@ private:
         {
             this->qosCallbackFunc_(qmap);
 
-            locker.lock();
             {// Dump QoS profile
+                std::lock_guard<std::mutex> lk(this->subscriptionLock_);
                 for (const auto& [k, v] : qmap)
                 {
                     std::string tn = k;
@@ -440,7 +440,6 @@ private:
                         (this->qosDirPath_ / (tn + ".json")).generic_string().c_str());
                 }
             }
-            locker.unlock();
         }
         
         this->qosID_ = msg->qid;
@@ -494,10 +493,10 @@ public:
         //     }
         // }
 
-        std::unique_lock<std::mutex> locker(this->subscriptionLock_, std::defer_lock);
-        locker.lock();
-        this->qosTopicNameVec_.insert(topicName);
-        locker.unlock();
+        {
+            std::lock_guard<std::mutex> lk(this->subscriptionLock_);
+            this->qosTopicNameVec_.insert(topicName);
+        }
 
         // Preparing return qmap
         QoSPair ret = {topicName, new rclcpp::QoS(10)};

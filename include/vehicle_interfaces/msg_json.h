@@ -4,12 +4,18 @@
 #include <nlohmann/json.hpp>
 
 #include "rclcpp/rclcpp.hpp"
+#include "vehicle_interfaces/utils.h"
+
 /** msg */
 #include "vehicle_interfaces/msg/chassis.hpp"
 #include "vehicle_interfaces/msg/steering_wheel.hpp"
 /** msg_content */
+#include "vehicle_interfaces/msg/chassis_info.hpp"
 #include "vehicle_interfaces/msg/control_chassis.hpp"
+#include "vehicle_interfaces/msg/controller_info.hpp"
+#include "vehicle_interfaces/msg/control_server_status.hpp"
 #include "vehicle_interfaces/msg/control_steering_wheel.hpp"
+#include "vehicle_interfaces/msg/data_server_status.hpp"
 #include "vehicle_interfaces/msg/mapping_data.hpp"
 #include "vehicle_interfaces/msg/motor_value_range.hpp"
 /** msg_geo */
@@ -21,6 +27,380 @@
 namespace vehicle_interfaces
 {
 
+
+
+/**
+ * ================================================================
+ * Namespace msg_show.
+ * ================================================================
+ */
+
+namespace msg_show
+{
+
+/** msg_geo */
+class Point2d
+{
+public:
+    static HierarchicalPrint hprint(const vehicle_interfaces::msg::Point2d& msg)
+    {
+        HierarchicalPrint ret;
+        ret.push(0, "<Point2d>");
+        ret.push(1, "x: " + std::to_string(msg.x));
+        ret.push(1, "y: " + std::to_string(msg.y));
+        return ret;
+    }
+
+    static std::string to_string(const vehicle_interfaces::msg::Point2d& msg)
+    {
+        return "(" + std::to_string(msg.x) + ", " + std::to_string(msg.y) + ")";
+    }
+};
+
+/** msg_content */
+class MappingData
+{
+public:
+    static HierarchicalPrint hprint(const vehicle_interfaces::msg::MappingData& msg)
+    {
+        int maxArrPrint = 5;
+        HierarchicalPrint ret;
+        ret.push(0, "<MappingData>");
+        ret.push(1, "input_vec (" + std::to_string(msg.input_vec.size()) + ")");
+        for (size_t i = 0; i < msg.input_vec.size(); i++)
+        {
+            if (i >= maxArrPrint)
+            {
+                ret.push(2, "...");
+                break;
+            }
+            ret.push(2, "[" + std::to_string(i) + "]: " + std::to_string(msg.input_vec[i]));
+        }
+
+        ret.push(1, "output_vec (" + std::to_string(msg.output_vec.size()) + ")");
+        for (size_t i = 0; i < msg.output_vec.size(); i++)
+        {
+            if (i >= maxArrPrint)
+            {
+                ret.push(2, "...");
+                break;
+            }
+            ret.push(2, "[" + std::to_string(i) + "]: " + std::to_string(msg.output_vec[i]));
+        }
+        return ret;
+    }
+};
+
+class MotorValueRange
+{
+public:
+    static HierarchicalPrint hprint(const vehicle_interfaces::msg::MotorValueRange& msg)
+    {
+        HierarchicalPrint ret;
+        ret.push(0, "<MotorValueRange>");
+        ret.push(1, "min: " + std::to_string(msg.min));
+        ret.push(1, "max: " + std::to_string(msg.max));
+        ret.push(1, "init: " + std::to_string(msg.init));
+        return ret;
+    }
+};
+
+class ControllerInfo
+{
+public:
+    static std::string getMsgTypeStr(uint8_t type)
+    {
+        switch (type)
+        {
+            case vehicle_interfaces::msg::ControllerInfo::MSG_TYPE_STEERING_WHEEL:
+                return "MSG_TYPE_STEERING_WHEEL";
+            case vehicle_interfaces::msg::ControllerInfo::MSG_TYPE_CHASSIS:
+                return "MSG_TYPE_CHASSIS";
+            default:
+                return "Unknown";
+        }
+    }
+
+    static std::string getControllerModeStr(uint8_t mode)
+    {
+        switch (mode)
+        {
+            case vehicle_interfaces::msg::ControllerInfo::CONTROLLER_MODE_TOPIC:
+                return "CONTROLLER_MODE_TOPIC";
+            case vehicle_interfaces::msg::ControllerInfo::CONTROLLER_MODE_SERVICE:
+                return "CONTROLLER_MODE_SERVICE";
+            default:
+                return "Unknown";
+        }
+    }
+
+    static std::string getPubTypeStr(uint8_t type)
+    {
+        switch (type)
+        {
+            case vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_NONE:
+                return "PUB_TYPE_NONE";
+            case vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_CONTROLLER_CLIENT:
+                return "PUB_TYPE_CONTROLLER_CLIENT";
+            case vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_CONTROLLER_SERVER:
+                return "PUB_TYPE_CONTROLLER_SERVER";
+            case vehicle_interfaces::msg::ControllerInfo::PUB_TYPE_BOTH:
+                return "PUB_TYPE_BOTH";
+            default:
+                return "Unknown";
+        }
+    }
+
+    static HierarchicalPrint hprint(const vehicle_interfaces::msg::ControllerInfo& msg)
+    {
+        HierarchicalPrint ret;
+        ret.push(0, "<ControllerInfo>");
+        ret.push(1, "msg_type: " + getMsgTypeStr(msg.msg_type));
+        ret.push(1, "controller_mode: " + getControllerModeStr(msg.controller_mode));
+        ret.push(1, "node_name: " + msg.node_name);
+        ret.push(1, "service_name: " + msg.service_name);
+        ret.push(1, "timeout_ms: " + std::to_string(msg.timeout_ms) + " ms");
+        ret.push(1, "period_ms: " + std::to_string(msg.period_ms) + " ms");
+        ret.push(1, "privilege: " + std::to_string(msg.privilege));
+        ret.push(1, "pub_type: " + getPubTypeStr(msg.pub_type));
+        return ret;
+    }
+};
+
+class ChassisInfo
+{
+public:
+    static std::string getVehicleTypeStr(uint8_t type)
+    {
+        switch (type)
+        {
+            case vehicle_interfaces::msg::ChassisInfo::VEHICLE_TYPE_1D1S1B:
+                return "VEHICLE_TYPE_1D1S1B";
+            case vehicle_interfaces::msg::ChassisInfo::VEHICLE_TYPE_4D4S4B:
+                return "VEHICLE_TYPE_4D4S4B";
+            case vehicle_interfaces::msg::ChassisInfo::VEHICLE_TYPE_8D8S8B:
+                return "VEHICLE_TYPE_8D8S8B";
+            default:
+                return "Unknown";
+        }
+    }
+
+    static HierarchicalPrint hprint(const vehicle_interfaces::msg::ChassisInfo& msg)
+    {
+        HierarchicalPrint ret;
+        ret.push(0, "<ChassisInfo>");
+        ret.push(1, "vehicle_type: " + getVehicleTypeStr(msg.vehicle_type));
+        ret.push(1, "wheel_position");
+        for (int i = 0; i < msg.wheel_position.size(); i++)
+            ret.push(2, "[" + std::to_string(i) + "]: " + Point2d::to_string(msg.wheel_position[i]));
+        ret.push(1, "chassis_centroid: " + Point2d::to_string(msg.chassis_centroid));
+        ret.push(1, "chassis_cg: " + Point2d::to_string(msg.chassis_cg));
+
+        ret.push(1, "drive_motor_mapping_vec");
+        for (int i = 0; i < msg.drive_motor_mapping_vec.size(); i++)
+        {
+            ret.push(2, "[" + std::to_string(i) + "]");
+            ret.append(3, MappingData::hprint(msg.drive_motor_mapping_vec[i]));
+        }
+        ret.push(1, "steering_motor_mapping_vec");
+        for (int i = 0; i < msg.steering_motor_mapping_vec.size(); i++)
+        {
+            ret.push(2, "[" + std::to_string(i) + "]");
+            ret.append(3, MappingData::hprint(msg.steering_motor_mapping_vec[i]));
+        }
+        ret.push(1, "brake_motor_mapping_vec");
+        for (int i = 0; i < msg.brake_motor_mapping_vec.size(); i++)
+        {
+            ret.push(2, "[" + std::to_string(i) + "]");
+            ret.append(3, MappingData::hprint(msg.brake_motor_mapping_vec[i]));
+        }
+
+        ret.push(1, "drive_motor_correction_vec");
+        for (int i = 0; i < msg.drive_motor_correction_vec.size(); i++)
+            ret.push(2, "[" + std::to_string(i) + "]: " + std::to_string(msg.drive_motor_correction_vec[i]));
+        ret.push(1, "steering_motor_correction_vec");
+        for (int i = 0; i < msg.steering_motor_correction_vec.size(); i++)
+            ret.push(2, "[" + std::to_string(i) + "]: " + std::to_string(msg.steering_motor_correction_vec[i]));
+        ret.push(1, "brake_motor_correction_vec");
+        for (int i = 0; i < msg.brake_motor_correction_vec.size(); i++)
+            ret.push(2, "[" + std::to_string(i) + "]: " + std::to_string(msg.brake_motor_correction_vec[i]));
+
+        ret.push(1, "drive_motor_pwm_value");
+        ret.append(2, MotorValueRange::hprint(msg.drive_motor_pwm_value));
+        ret.push(1, "drive_motor_rpm_value");
+        ret.append(2, MotorValueRange::hprint(msg.drive_motor_rpm_value));
+        ret.push(1, "steering_motor_pwm_value");
+        ret.append(2, MotorValueRange::hprint(msg.steering_motor_pwm_value));
+        ret.push(1, "steering_motor_angle_value");
+        ret.append(2, MotorValueRange::hprint(msg.steering_motor_angle_value));
+        ret.push(1, "brake_motor_pwm_value");
+        ret.append(2, MotorValueRange::hprint(msg.brake_motor_pwm_value));
+        ret.push(1, "brake_motor_psi_value");
+        ret.append(2, MotorValueRange::hprint(msg.brake_motor_psi_value));
+        return ret;
+    }
+};
+
+class ControlServerStatus
+{
+public:
+    static std::string getControllerActionStr(uint8_t act)
+    {
+        switch (act)
+        {
+            case vehicle_interfaces::msg::ControlServerStatus::CONTROLLER_ACTION_NONE:
+                return "CONTROLLER_ACTION_NONE";
+            case vehicle_interfaces::msg::ControlServerStatus::CONTROLLER_ACTION_SELECT:
+                return "CONTROLLER_ACTION_SELECT";
+            case vehicle_interfaces::msg::ControlServerStatus::CONTROLLER_ACTION_REMOVE:
+                return "CONTROLLER_ACTION_REMOVE";
+            default:
+                return "Unknown";
+        }
+    }
+
+    static std::string getServerActionStr(uint8_t act)
+    {
+        switch (act)
+        {
+            case vehicle_interfaces::msg::ControlServerStatus::SERVER_ACTION_NONE:
+                return "SERVER_ACTION_NONE";
+            case vehicle_interfaces::msg::ControlServerStatus::SERVER_ACTION_SET_TIMER:
+                return "SERVER_ACTION_SET_TIMER";
+            case vehicle_interfaces::msg::ControlServerStatus::SERVER_ACTION_SET_PERIOD:
+                return "SERVER_ACTION_SET_PERIOD";
+            default:
+                return "Unknown";
+        }
+    }
+
+    static std::string getTimerStatusStr(uint8_t act)
+    {
+        switch (act)
+        {
+            case vehicle_interfaces::msg::ControlServerStatus::TIMER_STATUS_NONE:
+                return "SERVER_SCAN_TIMER_STATUS_NONE";
+            case vehicle_interfaces::msg::ControlServerStatus::TIMER_STATUS_STOP:
+                return "SERVER_SCAN_TIMER_STATUS_STOP";
+            case vehicle_interfaces::msg::ControlServerStatus::TIMER_STATUS_START:
+                return "SERVER_SCAN_TIMER_STATUS_START";
+            default:
+                return "Unknown";
+        }
+    }
+
+    static std::string getChassisActionStr(uint8_t act)
+    {
+        switch (act)
+        {
+            case vehicle_interfaces::msg::ControlServerStatus::CHASSIS_ACTION_NONE:
+                return "CHASSIS_ACTION_NONE";
+            case vehicle_interfaces::msg::ControlServerStatus::CHASSIS_ACTION_SET:
+                return "CHASSIS_ACTION_STOP";
+            default:
+                return "Unknown";
+        }
+    }
+
+    static HierarchicalPrint hprint(const vehicle_interfaces::msg::ControlServerStatus& msg)
+    {
+        HierarchicalPrint ret;
+        ret.push(0, "<ControlServerStatus>");
+        ret.push(1, "controller_action: " + getControllerActionStr(msg.controller_action));
+        ret.push(1, "controller_service_name: " + msg.controller_service_name);
+        ret.push(1, "server_action: " + getServerActionStr(msg.server_action));
+        ret.push(1, "output_timer");
+        ret.push(2, "status: " + getTimerStatusStr(msg.server_output_timer_status));
+        ret.push(2, "period: " + std::to_string(msg.server_output_period_ms) + " ms");
+        ret.push(1, "safety_timer");
+        ret.push(2, "status: " + getTimerStatusStr(msg.server_safety_timer_status));
+        ret.push(2, "period: " + std::to_string(msg.server_safety_period_ms) + " ms");
+        ret.push(1, "idclient_timer");
+        ret.push(2, "status: " + getTimerStatusStr(msg.server_idclient_timer_status));
+        ret.push(2, "period: " + std::to_string(msg.server_idclient_period_ms) + " ms");
+        ret.push(1, "publish_timer");
+        ret.push(2, "status: " + getTimerStatusStr(msg.server_publish_timer_status));
+        ret.push(2, "period: " + std::to_string(msg.server_publish_period_ms) + " ms");
+        ret.push(1, "chassis_action: " + getChassisActionStr(msg.chassis_action));
+        ret.push(1, "chassis_info");
+        ret.append(2, ChassisInfo::hprint(msg.chassis_info));
+
+        return ret;
+    }
+};
+
+class DataServerStatus
+{
+public:
+    static std::string getServerActionStr(uint8_t act)
+    {
+        switch (act)
+        {
+            case vehicle_interfaces::msg::DataServerStatus::SERVER_ACTION_NONE:
+                return "SERVER_ACTION_NONE";
+            case vehicle_interfaces::msg::DataServerStatus::SERVER_ACTION_STOP:
+                return "SERVER_ACTION_STOP";
+            case vehicle_interfaces::msg::DataServerStatus::SERVER_ACTION_START:
+                return "SERVER_ACTION_START";
+            case vehicle_interfaces::msg::DataServerStatus::SERVER_ACTION_SET_TIMER:
+                return "SERVER_ACTION_SET_TIMER";
+            case vehicle_interfaces::msg::DataServerStatus::SERVER_ACTION_SET_PERIOD:
+                return "SERVER_ACTION_SET_PERIOD";
+            default:
+                return "Unknown";
+        }
+    }
+
+    static std::string getTimerStatusStr(uint8_t act)
+    {
+        switch (act)
+        {
+            case vehicle_interfaces::msg::DataServerStatus::TIMER_STATUS_NONE:
+                return "SERVER_SCAN_TIMER_STATUS_NONE";
+            case vehicle_interfaces::msg::DataServerStatus::TIMER_STATUS_STOP:
+                return "SERVER_SCAN_TIMER_STATUS_STOP";
+            case vehicle_interfaces::msg::DataServerStatus::TIMER_STATUS_START:
+                return "SERVER_SCAN_TIMER_STATUS_START";
+            default:
+                return "Unknown";
+        }
+    }
+
+    static HierarchicalPrint hprint(const vehicle_interfaces::msg::DataServerStatus& msg)
+    {
+        HierarchicalPrint ret;
+        ret.push(0, "<DataServerStatus>");
+        ret.push(1, "server_action: " + getServerActionStr(msg.server_action));
+        ret.push(1, "scan_timer");
+        ret.push(2, "status: " + getTimerStatusStr(msg.server_scan_timer_status));
+        ret.push(2, "period: " + std::to_string(msg.server_scan_period_ms) + " ms");
+        ret.push(1, "sample_timer");
+        ret.push(2, "status: " + getTimerStatusStr(msg.server_sample_timer_status));
+        ret.push(2, "period: " + std::to_string(msg.server_sample_period_ms) + " ms");
+        ret.push(1, "dump_timer");
+        ret.push(2, "status: " + getTimerStatusStr(msg.server_dump_timer_status));
+        ret.push(2, "period: " + std::to_string(msg.server_dump_period_ms) + " ms");
+        ret.push(1, "countdown_timer");
+        ret.push(2, "status: " + getTimerStatusStr(msg.server_countdown_timer_status));
+        ret.push(2, "period: " + std::to_string(msg.server_countdown_period_ms) + " ms");
+        return ret;
+    }
+};
+
+
+
+}// namespace msg_show
+
+
+
+
+
+/**
+ * ================================================================
+ * Namespace msg_to_json.
+ * ================================================================
+ */
+
 namespace msg_to_json
 {
 
@@ -31,7 +411,7 @@ class Point2d;
 class Point2f;
 class Size2f;
 
-/** msg_content*/
+/** msg_content */
 class MappingData
 {
 public:
@@ -57,7 +437,7 @@ public:
     }
 };
 
-/** msg_geo*/
+/** msg_geo */
 class Point2d
 {
 public:
@@ -111,6 +491,16 @@ public:
 
 }// namespace msg_to_json
 
+
+
+
+
+/**
+ * ================================================================
+ * Namespace json_to_msg.
+ * ================================================================
+ */
+
 namespace json_to_msg
 {
 
@@ -121,7 +511,7 @@ class Point2d;
 class Point2f;
 class Size2f;
 
-/** msg_content*/
+/** msg_content */
 class MappingData
 {
 public:
@@ -152,7 +542,7 @@ public:
     }
 };
 
-/** msg_geo*/
+/** msg_geo */
 class Point2d
 {
 public:
@@ -205,6 +595,16 @@ public:
 };
 
 }// namespace json_to_msg
+
+
+
+
+
+/**
+ * ================================================================
+ * Namespace msg_to_msg.
+ * ================================================================
+ */
 
 namespace msg_to_msg
 {
