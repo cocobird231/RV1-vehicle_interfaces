@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ---
 
 
+## [v1.2.0] - 2024-04-26
+
+- Release stable version 1.2.
+- Add `README.md` for the `vehicle_interfaces` package.
+
+### Added
+- `README.md`
+
+
+---
+
+
 ## [Unreleased] - 2024-04-25
 
 - Update lock and thread mechanism for `devinfo.h` and `qos.h`.
