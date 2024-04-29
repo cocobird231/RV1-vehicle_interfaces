@@ -1,3 +1,5 @@
+*`Established: 2024/04/26`* *`Updated: 2024/04/29`*
+
 ## About The Project
 The ROS2 interface and useful service codes for the robot vehicle ver. 1 project.
 
@@ -112,9 +114,9 @@ The required packages are listed in the `requirements_apt.txt` file.
     ```bash
     curl -fsSL ftp://61.220.23.239/scripts/install-ros2.sh | bash
     ```
-    Note: The script only supports `Foxy` and `Humble` versions depending on the system.
-    Note: The script will create a new workspace at `~/ros2_ws`.
-    Note: The script will create an alias `humble` for `source /opt/ros/humble/setup.bash` or alias `foxy` for `source /opt/ros/foxy/setup.bash`.
+    **NOTE:** The script only supports `Foxy` and `Humble` versions depending on the system.
+    **NOTE:** The script will create a new workspace at `~/ros2_ws`.
+    **NOTE:** The script will create an alias `humble` for `source /opt/ros/humble/setup.bash` or alias `foxy` for `source /opt/ros/foxy/setup.bash`.
 
 2. Clone the repository under `~/ros2_ws/src` and rename it to `vehicle_interfaces`:
     ```bash
@@ -127,7 +129,7 @@ The required packages are listed in the `requirements_apt.txt` file.
     cd ~/ros2_ws/src/vehicle_interfaces
 
     # Install the required packages.
-    xargs sudo apt install -y < requirement_apt.txt
+    xargs sudo apt install -y < requirements_apt.txt
     ```
 
 4. Build the interfaces:
@@ -142,13 +144,13 @@ The required packages are listed in the `requirements_apt.txt` file.
     cd ~/ros2_ws
     colcon build --symlink-install --packages-select vehicle_interfaces
     ```
-    Note: vehicle_interfaces is installed in the local workspace.
+    **NOTE:** vehicle_interfaces is installed in the local workspace.
 
 5. Build the Python binding (optional):
     ```bash
     colcon build --packages-select vehicle_interfaces --cmake-args -DPYLIB=TRUE
     ```
-    Note: The `step 4.` is required to build the Python binding.
+    **NOTE:** The `step 4.` is required to build the Python binding.
 
 ### Usage
 1. Source the local workspace:
